@@ -2,75 +2,52 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 
-// --- DUMMY DATA SCHEME ---
-class IncidentData {
-  final String title;
-  final String contractor;
-  final String reportedTime;
-  final int intensity; // 1 to 5 (1-2: Yellow, 3-5: Red)
-  final LatLng position;
+// --- MODEL (Matches your Firestore Schema) ---
+class ComplaintReport {
+  final String id;
+  final String type;
+  final GeoPoint location;
+  final String? imageUrl;
+  final DateTime timestamp;
+  final bool isAnonymous;
+  final String userId;
+  final int upvotes;
 
-  IncidentData({
-    required this.title,
-    required this.contractor,
-    required this.reportedTime,
-    required this.intensity,
-    required this.position,
+  ComplaintReport({
+    required this.id,
+    required this.type,
+    required this.location,
+    this.imageUrl,
+    required this.timestamp,
+    required this.isAnonymous,
+    required this.userId,
+    this.upvotes = 0,
   });
-}
 
-final List<IncidentData> dummyIncidents = [
-  IncidentData(
-    title: "Road Surface Collapse",
-    contractor: "Mumbai Roadworks Dept.",
-    reportedTime: "3 hours ago",
-    intensity: 5,
-    position: const LatLng(19.1650, 72.8520),
-  ),
-  IncidentData(
-    title: "Overflowing Drain",
-    contractor: "BMC Drainage Division",
-    reportedTime: "6 hours ago",
-    intensity: 4,
-    position: const LatLng(19.1605, 72.8475),
-  ),
-  IncidentData(
-    title: "Fallen Tree Blocking Road",
-    contractor: "Green Mumbai Authority",
-    reportedTime: "1 hour ago",
-    intensity: 3,
-    position: const LatLng(19.1682, 72.8551),
-  ),
-  IncidentData(
-    title: "Open Manhole",
-    contractor: "Urban Safety Cell",
-    reportedTime: "45 mins ago",
-    intensity: 5,
-    position: const LatLng(19.1578, 72.8503),
-  ),
-  IncidentData(
-    title: "Illegal Garbage Dump",
-    contractor: "Clean Mumbai Mission",
-    reportedTime: "10 hours ago",
-    intensity: 2,
-    position: const LatLng(19.1624, 72.8580),
-  ),
-  IncidentData(
-    title: "Damaged Footpath",
-    contractor: "City Infra Projects",
-    reportedTime: "2 days ago",
-    intensity: 3,
-    position: const LatLng(19.1701, 72.8489),
-  ),
-  IncidentData(
-    title: "Water Logging After Rain",
-    contractor: "Monsoon Control Unit",
-    reportedTime: "20 mins ago",
-    intensity: 4,
-    position: const LatLng(19.1559, 72.8536),
-  ),
-];
+  factory ComplaintReport.fromFirestore(DocumentSnapshot doc) {
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    List<dynamic> photos = data['photos'] ?? [];
+    String? imgUrl = photos.isNotEmpty ? photos[0].toString() : null;
+
+    return ComplaintReport(
+      id: doc.id,
+      type: data['type'] ?? 'Unknown Issue',
+      location: data['location'] is GeoPoint
+          ? data['location']
+          : const GeoPoint(0, 0),
+      imageUrl: imgUrl,
+      timestamp: data['timestamp'] != null
+          ? (data['timestamp'] as Timestamp).toDate()
+          : DateTime.now(),
+      isAnonymous: data['isAnonymous'] ?? false,
+      userId: data['userId'] ?? 'Unknown',
+      upvotes: data['upvotes'] ?? 0,
+    );
+  }
+}
 
 class HeatMap extends StatefulWidget {
   const HeatMap({super.key});
@@ -82,9 +59,13 @@ class HeatMap extends StatefulWidget {
 class _HeatMapState extends State<HeatMap> {
   final MapController _mapController = MapController();
 
-  // Default coordinates (used as fallback or initial state)
-  LatLng _currentPosition = const LatLng(28.6139, 77.2090);
+  // Default coordinates (Mumbai as fallback)
+  LatLng _currentPosition = const LatLng(19.0760, 72.8777);
   bool _isLoadingLocation = true;
+
+  // Filter State
+  String _selectedCategory = 'All';
+  final List<String> _categories = ['All', 'Road', 'Sanitation', 'Electrical', 'Water', 'Others'];
 
   @override
   void initState() {
@@ -92,7 +73,6 @@ class _HeatMapState extends State<HeatMap> {
     _initLocation();
   }
 
-  /// Entry point for location logic
   Future<void> _initLocation() async {
     try {
       Position position = await _determinePosition();
@@ -107,7 +87,6 @@ class _HeatMapState extends State<HeatMap> {
     }
   }
 
-  /// Handles GPS permissions and coordinate fetching
   Future<Position> _determinePosition() async {
     bool serviceEnabled;
     LocationPermission permission;
@@ -124,15 +103,12 @@ class _HeatMapState extends State<HeatMap> {
         return Future.error('Location permissions are denied');
       }
     }
-
     if (permission == LocationPermission.deniedForever) {
       return Future.error('Location permissions are permanently denied.');
     }
-
     return await Geolocator.getCurrentPosition();
   }
 
-  /// Safely moves the map after build is complete
   void _safeMapMove(LatLng center, double zoom) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       try {
@@ -153,8 +129,32 @@ class _HeatMapState extends State<HeatMap> {
     _safeMapMove(_mapController.camera.center, currentZoom - 1);
   }
 
-  /// Shows the incident details bottom sheet
-  void _showIncidentDetails(IncidentData data) {
+  // --- Helper to categorize raw types ---
+  String _getNormalizedCategory(String type) {
+    final t = type.toLowerCase();
+    if (t.contains('road') || t.contains('pothole') || t.contains('collapse') || t.contains('traffic')) return 'Road';
+    if (t.contains('garbage') || t.contains('sanitation') || t.contains('trash') || t.contains('dump')) return 'Sanitation';
+    if (t.contains('electric') || t.contains('light') || t.contains('lamp')) return 'Electrical';
+    if (t.contains('water') || t.contains('leak') || t.contains('drain') || t.contains('flood')) return 'Water';
+    return 'Others';
+  }
+
+  Color _getCategoryColor(String category) {
+    switch (category) {
+      case 'Road': return Colors.red;
+      case 'Sanitation': return Colors.brown;
+      case 'Electrical': return Colors.amber.shade700;
+      case 'Water': return Colors.blue;
+      default: return Colors.purple;
+    }
+  }
+
+  void _showIncidentDetails(ComplaintReport report) {
+    final category = _getNormalizedCategory(report.type);
+    final color = _getCategoryColor(category);
+    final timeAgo = _getTimeAgo(report.timestamp);
+    final reporterName = report.isAnonymous ? 'Anonymous' : report.userId;
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -172,41 +172,59 @@ class _HeatMapState extends State<HeatMap> {
                 children: [
                   Expanded(
                     child: Text(
-                      data.title,
+                      report.type,
                       style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: data.intensity >= 3 ? Colors.red.shade100 : Colors.amber.shade100,
+                      color: color.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      "Intensity: ${data.intensity}",
+                      "${report.upvotes} Upvotes",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: data.intensity >= 3 ? Colors.red.shade900 : Colors.orange.shade900,
+                        color: color,
                       ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
-              _detailRow(Icons.engineering, "Contractor", data.contractor),
+              _detailRow(Icons.category, "Category", category),
               const SizedBox(height: 8),
-              _detailRow(Icons.access_time, "Reported", data.reportedTime),
+              _detailRow(Icons.person, "Reported By", reporterName),
+              const SizedBox(height: 8),
+              _detailRow(Icons.access_time, "Time", timeAgo),
+
               const SizedBox(height: 24),
+
+              if (report.imageUrl != null) ...[
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    report.imageUrl!,
+                    height: 150,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_,__,___) => const SizedBox(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () => Navigator.pop(context),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
+                    backgroundColor: color,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  child: const Text("View Full Report"),
+                  child: const Text("Close"),
                 ),
               ),
             ],
@@ -216,13 +234,22 @@ class _HeatMapState extends State<HeatMap> {
     );
   }
 
+  String _getTimeAgo(DateTime dateTime) {
+    final difference = DateTime.now().difference(dateTime);
+    if (difference.inMinutes < 60) return '${difference.inMinutes}m ago';
+    if (difference.inHours < 24) return '${difference.inHours}h ago';
+    return DateFormat('MMM d').format(dateTime);
+  }
+
   Widget _detailRow(IconData icon, String label, String value) {
     return Row(
       children: [
         Icon(icon, size: 18, color: Colors.grey),
         const SizedBox(width: 8),
         Text("$label: ", style: const TextStyle(color: Colors.grey)),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
+        Expanded(
+          child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
+        ),
       ],
     );
   }
@@ -259,59 +286,139 @@ class _HeatMapState extends State<HeatMap> {
       ),
       body: Stack(
         children: [
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: _currentPosition,
-              initialZoom: 13.0,
-              maxZoom: 18.0,
-              minZoom: 3.0,
-              interactionOptions: const InteractionOptions(
-                flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
-              ),
-            ),
-            children: [
-              TileLayer(
-                urlTemplate:
-                'https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=gFtNu24T2QIe0IP18qvC',
-                userAgentPackageName: 'com.example.gdg_hacksync',
-              )
-              ,
-              MarkerLayer(
-                markers: [
-                  // User location marker
-                  Marker(
-                    point: _currentPosition,
-                    width: 50,
-                    height: 50,
-                    child: const Icon(
-                      Icons.person_pin_circle,
-                      color: Colors.blueAccent,
-                      size: 45,
-                      shadows: [Shadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4))],
+          StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance.collection('reports').snapshots(),
+              builder: (context, snapshot) {
+
+                List<Marker> reportMarkers = [];
+
+                if (snapshot.hasData) {
+                  // 1. Convert docs to models
+                  var reports = snapshot.data!.docs
+                      .map((doc) => ComplaintReport.fromFirestore(doc))
+                      .toList();
+
+                  // 2. Filter based on Selected Category
+                  if (_selectedCategory != 'All') {
+                    reports = reports.where((r) => _getNormalizedCategory(r.type) == _selectedCategory).toList();
+                  }
+
+                  // 3. Create Markers
+                  reportMarkers = reports.map((report) {
+                    final category = _getNormalizedCategory(report.type);
+                    final color = _getCategoryColor(category);
+
+                    return Marker(
+                      point: LatLng(report.location.latitude, report.location.longitude),
+                      width: 45,
+                      height: 45,
+                      child: GestureDetector(
+                        onTap: () => _showIncidentDetails(report),
+                        child: Icon(
+                          Icons.location_on,
+                          color: color,
+                          size: 45,
+                          shadows: const [
+                            Shadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList();
+                }
+
+                return FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: _currentPosition,
+                    initialZoom: 13.0,
+                    maxZoom: 18.0,
+                    minZoom: 3.0,
+                    interactionOptions: const InteractionOptions(
+                      flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
                     ),
                   ),
-                  // Incident dummy markers
-                  ...dummyIncidents.map((incident) => Marker(
-                    point: incident.position,
-                    width: 40,
-                    height: 40,
-                    child: GestureDetector(
-                      onTap: () => _showIncidentDetails(incident),
-                      child: Icon(
-                        Icons.person_pin_circle,
-                        color: incident.intensity >= 3 ? Colors.red : Colors.amber,
-                        size: 40,
-                        shadows: const [Shadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))],
-                      ),
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                      'https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=gFtNu24T2QIe0IP18qvC',
+                      userAgentPackageName: 'com.example.gdg_hacksync',
                     ),
-                  )),
-                ],
-              ),
-            ],
+
+                    // Markers Layer
+                    MarkerLayer(
+                      markers: [
+                        // User location marker
+                        Marker(
+                          point: _currentPosition,
+                          width: 50,
+                          height: 50,
+                          child: const Icon(
+                            Icons.person_pin_circle,
+                            color: Colors.blueAccent,
+                            size: 45,
+                            shadows: [
+                              Shadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4))
+                            ],
+                          ),
+                        ),
+                        // Firestore Report Markers
+                        ...reportMarkers,
+                      ],
+                    ),
+                  ],
+                );
+              }
           ),
 
-          // Loading Overlay
+          // --- CATEGORY FILTERS ---
+          Positioned(
+            top: 100, // Just below AppBar area
+            left: 0,
+            right: 0,
+            child: SizedBox(
+              height: 50,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _categories.length,
+                itemBuilder: (context, index) {
+                  final category = _categories[index];
+                  final isSelected = _selectedCategory == category;
+                  final color = category == 'All' ? Colors.grey.shade800 : _getCategoryColor(category);
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(
+                          category,
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.black87,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          )
+                      ),
+                      selected: isSelected,
+                      selectedColor: category == 'All' ? Colors.black87 : color,
+                      backgroundColor: Colors.white,
+                      elevation: 2,
+                      side: BorderSide(
+                        color: isSelected ? Colors.transparent : Colors.grey.shade300,
+                      ),
+                      onSelected: (bool selected) {
+                        if (selected) {
+                          setState(() {
+                            _selectedCategory = category;
+                          });
+                        }
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+
+          // Loading Overlay (Only for initial GPS fetch)
           if (_isLoadingLocation)
             Container(
               color: Colors.black.withOpacity(0.3),
