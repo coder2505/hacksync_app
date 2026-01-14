@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gdg_hacksync/views/heat_map.dart';
 import 'package:gdg_hacksync/views/report_a_complaint.dart';
+import 'package:gdg_hacksync/views/social_screen.dart';
 import 'package:gdg_hacksync/views/user_profile_page.dart';
 
 class UserHomescreen extends StatefulWidget {
@@ -90,7 +91,14 @@ class _UserHomescreenState extends State<UserHomescreen> {
                     icon: Icons.warning_amber_rounded,
                     color: Colors.red.shade50,
                     iconColor: Colors.red.shade900,
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (context) => SocialScreen(),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
