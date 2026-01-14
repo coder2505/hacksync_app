@@ -8,6 +8,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ReportAComplaint extends StatefulWidget {
   const ReportAComplaint({super.key});
@@ -159,7 +160,7 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
         _imageFiles,
         DateTime.now(),
         _selectedIncidentType!,
-        "userIdDummy", // Replace with actual Auth logic
+        dotenv.env['USERID'], // Replace with actual Auth logic
       );
 
       if (mounted) {

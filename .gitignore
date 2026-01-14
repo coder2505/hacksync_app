@@ -60,3 +60,6 @@ keystore.properties
 
 # FVM Version Cache
 .fvm/
+
+
+.env
