@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gdg_hacksync/views/heat_map.dart';
+import 'package:gdg_hacksync/views/map_navigation.dart';
 import 'package:gdg_hacksync/views/report_a_complaint.dart';
 import 'package:gdg_hacksync/views/report_history_screen.dart';
 import 'package:gdg_hacksync/views/social_screen.dart';
@@ -108,6 +109,14 @@ class _UserHomescreenState extends State<UserHomescreen> {
                       );
                     },
                   ),
+                  _buildActionCard(title: "Plan your trip", icon: Icons.map, color: Colors.blue.shade50, iconColor: Colors.blue, onTap: (){
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (context) => SimpleNavScreen(),
+                      ),
+                    );
+                  })
                 ],
               ),
 
