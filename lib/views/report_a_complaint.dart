@@ -160,7 +160,7 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
         _imageFiles,
         DateTime.now(),
         _selectedIncidentType!,
-        dotenv.env['USERID'], // Replace with actual Auth logic
+        dotenv.env['USERID'] ?? "manishbaby123", // Replace with actual Auth logic
       );
 
       if (mounted) {

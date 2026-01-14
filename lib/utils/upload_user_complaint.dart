@@ -42,19 +42,22 @@ class UploadUserComplaint {
 
 
   static Future<void> upload(
-    bool isAnonymous,
-    LatLng location,
-    List<XFile> photos,
-    DateTime timestamp,
-    String type,
-    userId,
-  ) async {
+      bool isAnonymous,
+      LatLng location,
+      List<XFile> photos,
+      DateTime timestamp,
+      String type,
+      String userId, // Ensure this is typed
+      ) async {
     try {
-      var collection = FirebaseFirestore.instance.collection('reports');
+      var reportsCollection = FirebaseFirestore.instance.collection('reports');
+      var usersCollection = FirebaseFirestore.instance.collection('users');
 
+      // 1. Upload images and get links
       List<String> userImages = await getImageslink(photos, userId);
 
-      await collection.add({
+      // 2. Add the report and get the reference
+      DocumentReference reportRef = await reportsCollection.add({
         'isAnonymous': isAnonymous,
         'location': GeoPoint(location.latitude, location.longitude),
         'photos': userImages,
@@ -62,7 +65,16 @@ class UploadUserComplaint {
         'type': type,
         'userId': userId,
       });
+
+      // 3. Update the user document
+      // We use set with SetOptions(merge: true) to ensure the 'complaints'
+      // array is created if it doesn't exist.
+      await usersCollection.doc(userId).set({
+        'complaints': FieldValue.arrayUnion([reportRef.id])
+      }, SetOptions(merge: true));
+
     } catch (e) {
+      print("Error during upload: $e");
       rethrow;
     }
   }
