@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:gdg_hacksync/views/heat_map.dart';
 import 'package:gdg_hacksync/views/report_a_complaint.dart';
+import 'package:gdg_hacksync/views/user_profile_page.dart';
 
 class UserHomescreen extends StatefulWidget {
   const UserHomescreen({super.key});
@@ -49,6 +51,20 @@ class _UserHomescreenState extends State<UserHomescreen> {
                 childAspectRatio: 0.9,
                 children: [
                   _buildActionCard(
+                    title: "Profile",
+                    icon: Icons.person,
+                    color: Colors.green.shade50,
+                    iconColor: Colors.green.shade700,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (context) => UserProfilePage(),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildActionCard(
                     title: "Report History",
                     icon: Icons.history,
                     color: Colors.blue.shade50,
@@ -56,21 +72,21 @@ class _UserHomescreenState extends State<UserHomescreen> {
                     onTap: () {},
                   ),
                   _buildActionCard(
-                    title: "Issues Around You",
-                    icon: Icons.near_me,
-                    color: Colors.green.shade50,
-                    iconColor: Colors.green.shade700,
-                    onTap: () {},
-                  ),
-                  _buildActionCard(
                     title: "Heat Map",
                     icon: Icons.map_outlined,
                     color: Colors.orange.shade50,
                     iconColor: Colors.orange.shade700,
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (context) => HeatMap(),
+                        ),
+                      );
+                    },
                   ),
                   _buildActionCard(
-                    title: "Top Complained Projects",
+                    title: "Issues Around You",
                     icon: Icons.warning_amber_rounded,
                     color: Colors.red.shade50,
                     iconColor: Colors.red.shade900,
@@ -118,7 +134,7 @@ class _UserHomescreenState extends State<UserHomescreen> {
           Navigator.push(
             context,
             MaterialPageRoute<void>(
-              builder: (context) => const ReportAComplaint(),
+              builder: (context) => ReportAComplaint(),
             ),
           );
         },
