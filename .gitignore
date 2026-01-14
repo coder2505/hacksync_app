@@ -44,5 +44,16 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-firebase.json
+# Firebase
 lib/firebase_options.dart
+
+# iOS/MacOS
+./macos/flutter/GeneratedPluginRegistrant.swift
+
+#google-service
+/android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+ios/firebase_app_id_file.json
+Session.vim
+keystore.jks
+keystore.properties
