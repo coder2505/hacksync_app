@@ -1,37 +1,56 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-// Model for complaint report
+// Model for complaint report matching the Schema
 class ComplaintReport {
   final String id;
-  final String title;
-  final String description;
-  final String category;
-  final String address;
-  final double latitude;
-  final double longitude;
-  final String reporterName;
-  final DateTime createdAt;
-  final String status; // "Open", "In Progress", "Resolved"
-  final String imageUrl;
-  int upvotes;
+  final String type; // Acts as title/category
+  final GeoPoint location;
+  final String? imageUrl;
+  final DateTime timestamp;
+  final bool isAnonymous;
+  final String userId;
+  final int upvotes;
+
+  // Local-only field to track if *this* user liked it during this session
+  // Note: For permanent tracking, you'd need a 'likedBy' array in Firestore.
   bool hasUserUpvoted;
 
   ComplaintReport({
     required this.id,
-    required this.title,
-    required this.description,
-    required this.category,
-    required this.address,
-    required this.latitude,
-    required this.longitude,
-    required this.reporterName,
-    required this.createdAt,
-    required this.status,
-    required this.imageUrl,
+    required this.type,
+    required this.location,
+    this.imageUrl,
+    required this.timestamp,
+    required this.isAnonymous,
+    required this.userId,
     this.upvotes = 0,
     this.hasUserUpvoted = false,
   });
+
+  factory ComplaintReport.fromFirestore(DocumentSnapshot doc) {
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+
+    // Handle Photos array safely
+    List<dynamic> photos = data['photos'] ?? [];
+    String? imgUrl = photos.isNotEmpty ? photos[0].toString() : null;
+
+    return ComplaintReport(
+      id: doc.id,
+      type: data['type'] ?? 'Unknown Issue',
+      location: data['location'] is GeoPoint
+          ? data['location']
+          : const GeoPoint(0, 0),
+      imageUrl: imgUrl,
+      timestamp: data['timestamp'] != null
+          ? (data['timestamp'] as Timestamp).toDate()
+          : DateTime.now(),
+      isAnonymous: data['isAnonymous'] ?? false,
+      userId: data['userId'] ?? 'Unknown',
+      upvotes: data['upvotes'] ?? 0, // Defaults to 0 if field is missing
+    );
+  }
 }
 
 class SocialScreen extends StatefulWidget {
@@ -42,153 +61,51 @@ class SocialScreen extends StatefulWidget {
 }
 
 class _SocialScreenState extends State<SocialScreen> {
-  // Hardcoded complaint reports
-  late List<ComplaintReport> reports;
+  // Keep track of locally upvoted IDs for session persistence
+  final Set<String> _localUpvotedIds = {};
 
-  @override
-  void initState() {
-    super.initState();
-    reports = [
-      ComplaintReport(
-        id: '1',
-        title: 'Pothole on Main Street',
-        description: 'Large pothole causing traffic hazards near the intersection',
-        category: 'Road Damage',
-        address: '123 Main Street, Downtown',
-        latitude: 40.7128,
-        longitude: -74.0060,
-        reporterName: 'John Doe',
-        createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-        status: 'Open',
-        imageUrl:
-            'https://via.placeholder.com/400x300?text=Pothole',
-        upvotes: 24,
-        hasUserUpvoted: false,
-      ),
-      ComplaintReport(
-        id: '2',
-        title: 'Broken Street Light',
-        description: 'Street lamp not functioning at night, poses safety risk',
-        category: 'Infrastructure',
-        address: '456 Oak Avenue, Westside',
-        latitude: 40.7180,
-        longitude: -74.0020,
-        reporterName: 'Sarah Smith',
-        createdAt: DateTime.now().subtract(const Duration(hours: 4)),
-        status: 'In Progress',
-        imageUrl:
-            'https://via.placeholder.com/400x300?text=Broken+Light',
-        upvotes: 18,
-        hasUserUpvoted: false,
-      ),
-      ComplaintReport(
-        id: '3',
-        title: 'Graffiti on Park Wall',
-        description: 'Unauthorized graffiti covering the entire community park wall',
-        category: 'Vandalism',
-        address: '789 Park Lane, Central Park',
-        latitude: 40.7649,
-        longitude: -73.9776,
-        reporterName: 'Mike Johnson',
-        createdAt: DateTime.now().subtract(const Duration(hours: 6)),
-        status: 'Open',
-        imageUrl:
-            'https://via.placeholder.com/400x300?text=Graffiti',
-        upvotes: 31,
-        hasUserUpvoted: false,
-      ),
-      ComplaintReport(
-        id: '4',
-        title: 'Garbage Overflow',
-        description: 'Trash bins overflowing, attracting pests and animals',
-        category: 'Sanitation',
-        address: '321 Elm Street, Eastside',
-        latitude: 40.7282,
-        longitude: -73.7949,
-        reporterName: 'Emily Chen',
-        createdAt: DateTime.now().subtract(const Duration(hours: 8)),
-        status: 'Resolved',
-        imageUrl:
-            'https://via.placeholder.com/400x300?text=Garbage',
-        upvotes: 12,
-        hasUserUpvoted: true,
-      ),
-      ComplaintReport(
-        id: '5',
-        title: 'Water Pipe Leakage',
-        description: 'Water main leak causing flooding on residential block',
-        category: 'Utilities',
-        address: '555 River Road, North District',
-        latitude: 40.8088,
-        longitude: -73.9482,
-        reporterName: 'Robert Wilson',
-        createdAt: DateTime.now().subtract(const Duration(days: 1)),
-        status: 'In Progress',
-        imageUrl:
-            'https://via.placeholder.com/400x300?text=Water+Leak',
-        upvotes: 45,
-        hasUserUpvoted: false,
-      ),
-      ComplaintReport(
-        id: '6',
-        title: 'Overgrown Vegetation',
-        description: 'Sidewalk blocked by overgrown tree branches and vines',
-        category: 'Maintenance',
-        address: '888 Forest Drive, Green Zone',
-        latitude: 40.6895,
-        longitude: -74.0119,
-        reporterName: 'Lisa Anderson',
-        createdAt: DateTime.now().subtract(const Duration(days: 1, hours: 3)),
-        status: 'Open',
-        imageUrl:
-            'https://via.placeholder.com/400x300?text=Vegetation',
-        upvotes: 8,
-        hasUserUpvoted: false,
-      ),
-    ];
-  }
+  Future<void> _handleUpvote(ComplaintReport report) async {
+    final docRef = FirebaseFirestore.instance.collection('reports').doc(report.id);
+    final isUpvoting = !_localUpvotedIds.contains(report.id);
 
-  void _toggleUpvote(int index) {
+    // 1. Update Local State (for immediate UI feedback)
     setState(() {
-      if (reports[index].hasUserUpvoted) {
-        reports[index].upvotes--;
+      if (isUpvoting) {
+        _localUpvotedIds.add(report.id);
       } else {
-        reports[index].upvotes++;
+        _localUpvotedIds.remove(report.id);
       }
-      reports[index].hasUserUpvoted = !reports[index].hasUserUpvoted;
     });
-  }
 
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'Open':
-        return Colors.orange;
-      case 'In Progress':
-        return Colors.blue;
-      case 'Resolved':
-        return Colors.green;
-      default:
-        return Colors.grey;
+    // 2. Write to Firestore
+    try {
+      await docRef.set({
+        'upvotes': FieldValue.increment(isUpvoting ? 1 : -1)
+      }, SetOptions(merge: true)); // Merge ensures we don't overwrite other fields
+    } catch (e) {
+      debugPrint("Error updating upvote: $e");
+      // Revert local state on error
+      setState(() {
+        if (isUpvoting) {
+          _localUpvotedIds.remove(report.id);
+        } else {
+          _localUpvotedIds.add(report.id);
+        }
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update vote: $e')),
+        );
+      }
     }
   }
 
-  Color _getCategoryColor(String category) {
-    switch (category) {
-      case 'Road Damage':
-        return Colors.red.shade100;
-      case 'Infrastructure':
-        return Colors.yellow.shade100;
-      case 'Vandalism':
-        return Colors.purple.shade100;
-      case 'Sanitation':
-        return Colors.brown.shade100;
-      case 'Utilities':
-        return Colors.blue.shade100;
-      case 'Maintenance':
-        return Colors.green.shade100;
-      default:
-        return Colors.grey.shade100;
-    }
+  Color _getTypeColor(String type) {
+    final t = type.toLowerCase();
+    if (t.contains('garbage') || t.contains('sanitation')) return Colors.brown.shade100;
+    if (t.contains('pothole') || t.contains('road')) return Colors.red.shade100;
+    if (t.contains('light') || t.contains('electric')) return Colors.yellow.shade100;
+    return Colors.blue.shade100;
   }
 
   @override
@@ -206,24 +123,51 @@ class _SocialScreenState extends State<SocialScreen> {
             fontSize: 24,
           ),
         ),
-        centerTitle: false,
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-        itemCount: reports.length,
-        itemBuilder: (context, index) {
-          final report = reports[index];
-          return _buildComplaintCard(report, index);
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('reports')
+            .orderBy('timestamp', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          }
+
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(child: Text('No reports found.'));
+          }
+
+          final reports = snapshot.data!.docs.map((doc) {
+            final report = ComplaintReport.fromFirestore(doc);
+            // Sync with local session state
+            report.hasUserUpvoted = _localUpvotedIds.contains(report.id);
+            return report;
+          }).toList();
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(12),
+            itemCount: reports.length,
+            itemBuilder: (context, index) {
+              return _buildComplaintCard(reports[index]);
+            },
+          );
         },
       ),
     );
   }
 
-  Widget _buildComplaintCard(ComplaintReport report, int index) {
-    final timeAgo = _getTimeAgo(report.createdAt);
+  Widget _buildComplaintCard(ComplaintReport report) {
+    final timeAgo = _getTimeAgo(report.timestamp);
+    final reporterDisplay = report.isAnonymous ? 'Anonymous' : report.userId;
+    final locationStr = '${report.location.latitude.toStringAsFixed(4)}, ${report.location.longitude.toStringAsFixed(4)}';
 
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
+      margin: const EdgeInsets.only(bottom: 16),
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Column(
@@ -231,66 +175,42 @@ class _SocialScreenState extends State<SocialScreen> {
         children: [
           // Image Section
           Container(
-            width: double.infinity,
             height: 200,
+            width: double.infinity,
             decoration: BoxDecoration(
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
               color: Colors.grey.shade300,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
             ),
-            child: Stack(
-              children: [
-                // Placeholder image
-                Center(
-                  child: Icon(
-                    Icons.image_not_supported,
-                    size: 48,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-                // Status badge
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: _getStatusColor(report.status),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      report.status,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            child: report.imageUrl != null
+                ? ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              child: Image.network(
+                report.imageUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+              ),
+            )
+                : const Center(
+              child: Icon(Icons.image_not_supported, size: 50, color: Colors.grey),
             ),
           ),
+
           // Content Section
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Category badge
+                // Type Badge
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _getCategoryColor(report.category),
+                    color: _getTypeColor(report.type),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    report.category,
-                    style: TextStyle(
+                    report.type,
+                    style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: Colors.black87,
@@ -298,152 +218,74 @@ class _SocialScreenState extends State<SocialScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                // Title
-                Text(
-                  report.title,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 8),
-                // Description
-                Text(
-                  report.description,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade700,
-                    height: 1.5,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 12),
-                // Location
+
+                // Location Info
                 Row(
                   children: [
-                    Icon(
-                      Icons.location_on,
-                      size: 16,
-                      color: Colors.grey.shade600,
-                    ),
+                    Icon(Icons.location_on, size: 16, color: Colors.grey.shade600),
                     const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        report.address,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    Text(
+                      locationStr,
+                      style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                // Meta info row
+
+                // Footer (Reporter & Time)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Reported by',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey.shade500,
-                          ),
-                        ),
-                        Text(
-                          report.reporterName,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ],
+                    Text(
+                      'By: $reporterDisplay',
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                     ),
                     Text(
                       timeAgo,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade500,
-                      ),
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                     ),
                   ],
                 ),
               ],
             ),
           ),
-          // Upvote Section
+
+          // Action Bar (Upvote)
           Container(
             decoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(color: Colors.grey.shade200),
-              ),
+              border: Border(top: BorderSide(color: Colors.grey.shade200)),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
-                GestureDetector(
-                  onTap: () => _toggleUpvote(index),
+                InkWell(
+                  onTap: () => _handleUpvote(report),
+                  borderRadius: BorderRadius.circular(8),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: report.hasUserUpvoted
-                          ? Colors.blue.shade50
-                          : Colors.grey.shade100,
+                      color: report.hasUserUpvoted ? Colors.blue.shade50 : Colors.transparent,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: report.hasUserUpvoted
-                            ? Colors.blue.shade300
-                            : Colors.grey.shade300,
+                        color: report.hasUserUpvoted ? Colors.blue.shade200 : Colors.grey.shade300,
                       ),
                     ),
                     child: Row(
                       children: [
                         Icon(
-                          report.hasUserUpvoted
-                              ? Icons.thumb_up
-                              : Icons.thumb_up_outlined,
+                          report.hasUserUpvoted ? Icons.thumb_up : Icons.thumb_up_outlined,
                           size: 18,
-                          color: report.hasUserUpvoted
-                              ? Colors.blue.shade700
-                              : Colors.grey.shade600,
+                          color: report.hasUserUpvoted ? Colors.blue : Colors.grey.shade600,
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 8),
                         Text(
                           '${report.upvotes}',
                           style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: report.hasUserUpvoted
-                                ? Colors.blue.shade700
-                                : Colors.grey.shade600,
+                            fontWeight: FontWeight.bold,
+                            color: report.hasUserUpvoted ? Colors.blue : Colors.grey.shade700,
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.share, size: 18),
-                    label: const Text('Share'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      side: BorderSide(color: Colors.grey.shade300),
                     ),
                   ),
                 ),
@@ -456,20 +298,9 @@ class _SocialScreenState extends State<SocialScreen> {
   }
 
   String _getTimeAgo(DateTime dateTime) {
-    final now = DateTime.now();
-    final difference = now.difference(dateTime);
-
-    if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
-    } else if (difference.inHours < 24) {
-      return '${difference.inHours}h ago';
-    } else if (difference.inDays == 1) {
-      return 'Yesterday';
-    } else if (difference.inDays < 7) {
-      return '${difference.inDays}d ago';
-    } else {
-      return DateFormat('MMM d').format(dateTime);
-    }
+    final difference = DateTime.now().difference(dateTime);
+    if (difference.inMinutes < 60) return '${difference.inMinutes}m ago';
+    if (difference.inHours < 24) return '${difference.inHours}h ago';
+    return DateFormat('MMM d').format(dateTime);
   }
 }
-
