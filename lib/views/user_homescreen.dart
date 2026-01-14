@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:gdg_hacksync/views/heat_map.dart';
 import 'package:gdg_hacksync/views/report_a_complaint.dart';
+import 'package:gdg_hacksync/views/report_history_screen.dart';
 import 'package:gdg_hacksync/views/social_screen.dart';
 import 'package:gdg_hacksync/views/user_profile_page.dart';
 
@@ -70,7 +71,14 @@ class _UserHomescreenState extends State<UserHomescreen> {
                     icon: Icons.history,
                     color: Colors.blue.shade50,
                     iconColor: Colors.blue.shade700,
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (context) => ReportHistoryScreen(),
+                        ),
+                      );
+                    },
                   ),
                   _buildActionCard(
                     title: "Heat Map",
