@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>49144707537-8ak3pfbp1puuu5v00aldkporvbd3lnvf.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.49144707537-8ak3pfbp1puuu5v00aldkporvbd3lnvf</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>49144707537-0u14t2n4t2ljo7na2ebbj9atc1n709p3.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyDE_UX7m-a8leQMsNkWUC6OQuvqI4_Ejrw</string>
+	<key>GCM_SENDER_ID</key>
+	<string>49144707537</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.example.gdgHacksync</string>
+	<key>PROJECT_ID</key>
+	<string>hackt-53cd7</string>
+	<key>STORAGE_BUCKET</key>
+	<string>hackt-53cd7.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:49144707537:ios:bb4ee98d8e1ec5d7ca48f0</string>
+</dict>
+</plist>
