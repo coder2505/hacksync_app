@@ -1,8 +1,10 @@
 import 'dart:io';
+import 'dart:convert'; // Added for JSON encoding
+import 'package:http/http.dart' as http; // Added for API requests
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:gdg_hacksync/utils/upload_user_complaint.dart'; // Ensure this class handles errors internally or throws them
+import 'package:gdg_hacksync/utils/upload_user_complaint.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
@@ -153,15 +155,18 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
     setState(() => _isUploading = true);
 
     try {
-      // Assuming UploadUserComplaint.upload is an async function
-      await UploadUserComplaint.upload(
+      String recordId = await UploadUserComplaint.upload(
         _isAnonymous,
         _currentPosition,
         _imageFiles,
         DateTime.now(),
         _selectedIncidentType!,
-        dotenv.env['USERID'] ?? "manishbaby123", // Replace with actual Auth logic
+        dotenv.env['USERID'] ?? "manishbaby123",
       );
+
+      // Step 2: Trigger the External API
+      debugPrint("Firestore Record Created: $recordId. Triggering Agent...");
+      await _triggerUserAgentApi(recordId);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -173,9 +178,37 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
         Navigator.pop(context); // Go back after success
       }
     } catch (e) {
+      debugPrint("Submission Error: $e");
       _showErrorSnackBar("Failed to submit report. Please try again.");
     } finally {
       if (mounted) setState(() => _isUploading = false);
+    }
+  }
+
+  /// Sends the POST request to the API
+  Future<void> _triggerUserAgentApi(String recordId) async {
+    try {
+      final url = Uri.parse("https://impossibly-lenten-darryl.ngrok-free.dev/api/userAgent");
+
+      final response = await http.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode({
+          "recordId": recordId,
+        }),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        debugPrint("Agent API Triggered Successfully: ${response.body}");
+      } else {
+        debugPrint("Agent API Failed: ${response.statusCode} - ${response.body}");
+        // Optional: Decide if you want to block the UI success if this fails
+        // Currently, we just log it so the user still sees "Success" for the upload
+      }
+    } catch (e) {
+      debugPrint("Agent API Connection Error: $e");
     }
   }
 

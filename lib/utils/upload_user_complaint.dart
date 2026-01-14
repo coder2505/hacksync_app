@@ -41,7 +41,7 @@ class UploadUserComplaint {
   }
 
 
-  static Future<void> upload(
+  static Future<String> upload(
       bool isAnonymous,
       LatLng location,
       List<XFile> photos,
@@ -72,6 +72,8 @@ class UploadUserComplaint {
       await usersCollection.doc(userId).set({
         'complaints': FieldValue.arrayUnion([reportRef.id])
       }, SetOptions(merge: true));
+
+      return reportRef.id;
 
     } catch (e) {
       print("Error during upload: $e");
