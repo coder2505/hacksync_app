@@ -1,20 +1,27 @@
 import 'package:flutter/material.dart';
-
 import '../models/fetchIncident.dart';
 
 class ReportDetailsScreen extends StatelessWidget {
   final ReportModel report;
   const ReportDetailsScreen({super.key, required this.report});
 
+  // Dark Mode Palette
+  final Color _darkBg = const Color(0xFF121212);
+  final Color _darkSurface = const Color(0xFF1E1E1E);
+  final Color _cardColor = const Color(0xFF252525);
+  final Color _textPrimary = const Color(0xFFF5F5F5);
+  final Color _textSecondary = const Color(0xFFB0B0B0);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: _darkBg,
       appBar: AppBar(
-        title: const Text("Incident Timeline"),
+        title: Text("Incident Timeline", style: TextStyle(color: _textPrimary)),
         elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: _darkBg,
+        foregroundColor: _textPrimary,
+        iconTheme: IconThemeData(color: _textPrimary),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -22,7 +29,7 @@ class ReportDetailsScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(),
-            const Divider(height: 40),
+            const Divider(height: 40, color: Colors.white10),
             _buildTimelineTile(
               title: "Report Submitted",
               subtitle: "Incident logged by ${report.isAnonymous ? 'Anonymous' : 'User'}",
@@ -47,7 +54,7 @@ class ReportDetailsScreen extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 8.0),
                         child: Text(
                           "Detected: ${report.userAgent!.visualVerification!.detectedObjects.join(', ')}",
-                          style: const TextStyle(fontSize: 12, color: Colors.blueGrey),
+                          style: TextStyle(fontSize: 12, color: Colors.blueAccent.shade100),
                         ),
                       ),
                   ],
@@ -82,15 +89,23 @@ class ReportDetailsScreen extends StatelessWidget {
                     _infoRow("Notes", report.evidenceAgent!.afterImageDescription),
                     if (report.evidenceAgent!.evidenceImageUrl.isNotEmpty)
                       Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
+                        padding: const EdgeInsets.only(top: 12.0),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(report.evidenceAgent!.evidenceImageUrl, height: 150, width: double.infinity, fit: BoxFit.cover),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.network(
+                              report.evidenceAgent!.evidenceImageUrl,
+                              height: 150,
+                              width: double.infinity,
+                              fit: BoxFit.cover
+                          ),
                         ),
                       ),
                   ],
                 )
-                    : const Text("Still in progress...", style: TextStyle(fontStyle: FontStyle.italic)),
+                    : Text(
+                    "Still in progress...",
+                    style: TextStyle(fontStyle: FontStyle.italic, color: _textSecondary)
+                ),
               ),
           ],
         ),
@@ -102,9 +117,9 @@ class ReportDetailsScreen extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(report.type, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        Text(report.type, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: _textPrimary)),
         const SizedBox(height: 4),
-        Text("Report ID: ${report.id}", style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+        Text("Report ID: ${report.id}", style: TextStyle(color: _textSecondary, fontSize: 12)),
       ],
     );
   }
@@ -124,18 +139,21 @@ class ReportDetailsScreen extends StatelessWidget {
           Column(
             children: [
               Container(
-                width: 20,
-                height: 20,
+                width: 22,
+                height: 22,
                 decoration: BoxDecoration(
-                  color: isCompleted ? Colors.green : Colors.grey[300],
+                  color: isCompleted ? Colors.greenAccent.shade400 : Colors.white10,
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
+                  border: Border.all(color: _darkBg, width: 3),
                 ),
-                child: isCompleted ? const Icon(Icons.check, size: 12, color: Colors.white) : null,
+                child: isCompleted ? const Icon(Icons.check, size: 12, color: Colors.black) : null,
               ),
               if (!isLast)
                 Expanded(
-                  child: Container(width: 2, color: isCompleted ? Colors.green : Colors.grey[200]),
+                  child: Container(
+                      width: 2,
+                      color: isCompleted ? Colors.greenAccent.shade400.withOpacity(0.5) : Colors.white10
+                  ),
                 ),
             ],
           ),
@@ -147,23 +165,24 @@ class ReportDetailsScreen extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: _textPrimary)),
                     if (time != null)
                       Text(
                         "${time.day}/${time.month}/${time.year} ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}",
-                        style: const TextStyle(color: Colors.grey, fontSize: 11),
+                        style: TextStyle(color: _textSecondary, fontSize: 11),
                       ),
                   ],
                 ),
-                Text(subtitle, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                Text(subtitle, style: TextStyle(color: _textSecondary, fontSize: 13)),
                 if (content != null) ...[
                   const SizedBox(height: 12),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(12),
+                      color: _cardColor,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white.withOpacity(0.05)),
                     ),
                     child: content,
                   ),
@@ -179,12 +198,12 @@ class ReportDetailsScreen extends StatelessWidget {
 
   Widget _infoRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: 6),
       child: RichText(
         text: TextSpan(
-          style: const TextStyle(color: Colors.black87, fontSize: 13),
+          style: TextStyle(color: _textPrimary.withOpacity(0.8), fontSize: 13, height: 1.4),
           children: [
-            TextSpan(text: "$label: ", style: const TextStyle(fontWeight: FontWeight.bold)),
+            TextSpan(text: "$label: ", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
             TextSpan(text: value),
           ],
         ),
@@ -195,11 +214,19 @@ class ReportDetailsScreen extends StatelessWidget {
   Widget _buildImageGrid(List<String> urls) {
     if (urls.isEmpty) return const SizedBox.shrink();
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+      spacing: 10,
+      runSpacing: 10,
       children: urls.map((url) => ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: Image.network(url, width: 70, height: 70, fit: BoxFit.cover),
+        child: Image.network(
+          url,
+          width: 80,
+          height: 80,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => Container(
+            width: 80, height: 80, color: Colors.white10, child: const Icon(Icons.broken_image, color: Colors.white24),
+          ),
+        ),
       )).toList(),
     );
   }
