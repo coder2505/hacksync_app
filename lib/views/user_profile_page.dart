@@ -8,10 +8,22 @@ class UserProfilePage extends StatefulWidget {
 }
 
 class _UserProfilePageState extends State<UserProfilePage> {
+  // Dark Mode Palette
+  final Color _darkBg = const Color(0xFF121212);
+  final Color _darkSurface = const Color(0xFF1E1E1E);
+  final Color _textPrimary = Colors.white.withOpacity(0.9);
+  final Color _textSecondary = Colors.white60;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: _darkBg,
+      appBar: AppBar(
+        backgroundColor: _darkSurface,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text("Profile", style: TextStyle(color: _textPrimary)),
+      ),
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -45,55 +57,49 @@ class _UserProfilePageState extends State<UserProfilePage> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
+        color: _darkSurface,
+        border: const Border(bottom: BorderSide(color: Colors.white10, width: 1)),
       ),
-      padding: const EdgeInsets.fromLTRB(24, 60, 24, 30),
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 30),
       child: Row(
         children: [
-          const CircleAvatar(
+          CircleAvatar(
             radius: 45,
-            backgroundColor: Colors.blueAccent,
-            child: Icon(Icons.person, size: 50, color: Colors.white),
+            backgroundColor: Colors.blueAccent.withOpacity(0.2),
+            child: const Icon(Icons.person, size: 50, color: Colors.blueAccent),
           ),
           const SizedBox(width: 20),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   "Manish",
                   style: TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                    color: _textPrimary,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.amber.shade100,
+                    color: Colors.amberAccent.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.amber.shade400),
+                    border: Border.all(color: Colors.amberAccent.withOpacity(0.4)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.verified, size: 16, color: Colors.amber.shade800),
+                      Icon(Icons.verified, size: 16, color: Colors.amberAccent.shade100),
                       const SizedBox(width: 4),
                       Text(
                         "Verified Contributor",
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: Colors.amber.shade900,
+                          color: Colors.amberAccent.shade100,
                         ),
                       ),
                     ],
@@ -111,9 +117,9 @@ class _UserProfilePageState extends State<UserProfilePage> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: _darkSurface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: Colors.white10),
       ),
       child: Row(
         children: [
@@ -126,29 +132,29 @@ class _UserProfilePageState extends State<UserProfilePage> {
                 child: CircularProgressIndicator(
                   value: 0.85,
                   strokeWidth: 8,
-                  backgroundColor: Colors.grey.shade100,
-                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.greenAccent),
+                  backgroundColor: Colors.white.withOpacity(0.05),
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.greenAccent.shade400),
                 ),
               ),
-              const Text(
+              Text(
                 "850",
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: _textPrimary),
               )
             ],
           ),
           const SizedBox(width: 20),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   "Credibility Score",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _textPrimary),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
                   "Top 5% of reporters in Metro City. Keep reporting to maintain your rank.",
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                  style: TextStyle(fontSize: 12, color: _textSecondary),
                 ),
               ],
             ),
@@ -165,27 +171,26 @@ class _UserProfilePageState extends State<UserProfilePage> {
           "Flagged Projects Value",
           "₹1.2 Cr",
           Icons.currency_rupee,
-          Colors.orange.shade700,
-          Colors.orange.shade50,
+          Colors.orangeAccent.shade100,
         ),
         const SizedBox(height: 16),
         _buildStatCard(
           "Issues Resolved",
           "42",
           Icons.check_circle_outline,
-          Colors.blue.shade700,
-          Colors.blue.shade50,
+          Colors.blueAccent.shade100,
         ),
       ],
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, Color color, Color bgColor) {
+  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: bgColor,
+        color: color.withOpacity(0.08),
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.2)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -195,7 +200,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
             children: [
               Text(
                 label,
-                style: TextStyle(fontSize: 14, color: color.withOpacity(0.8), fontWeight: FontWeight.w500),
+                style: TextStyle(fontSize: 14, color: _textSecondary, fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 4),
               Text(
@@ -204,7 +209,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
               ),
             ],
           ),
-          Icon(icon, size: 40, color: color.withOpacity(0.3)),
+          Icon(icon, size: 40, color: color.withOpacity(0.2)),
         ],
       ),
     );
@@ -225,15 +230,15 @@ class _UserProfilePageState extends State<UserProfilePage> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: _darkSurface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade200),
+          border: Border.all(color: Colors.white10),
         ),
         child: Column(
           children: [
-            Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: _textPrimary)),
             const SizedBox(height: 4),
-            Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(label, style: TextStyle(fontSize: 12, color: _textSecondary)),
           ],
         ),
       ),
@@ -243,10 +248,10 @@ class _UserProfilePageState extends State<UserProfilePage> {
   Widget _buildSectionTitle(String title) {
     return Text(
       title,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 18,
         fontWeight: FontWeight.bold,
-        color: Colors.black87,
+        color: _textPrimary,
       ),
     );
   }

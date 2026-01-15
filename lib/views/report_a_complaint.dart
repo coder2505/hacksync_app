@@ -1,8 +1,5 @@
 import 'dart:io';
-import 'dart:convert';
 import 'package:gdg_hacksync/views/report_submit_loader.dart';
-import 'package:http/http.dart' as http;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geocoding/geocoding.dart';
@@ -19,6 +16,12 @@ class ReportAComplaint extends StatefulWidget {
 }
 
 class _ReportAComplaintState extends State<ReportAComplaint> {
+  // Dark Mode Palette
+  final Color _darkBg = const Color(0xFF121212);
+  final Color _darkSurface = const Color(0xFF1E1E1E);
+  final Color _textPrimary = Colors.white.withOpacity(0.9);
+  final Color _textSecondary = Colors.white60;
+
   // Form State
   String? _selectedIncidentType;
   final List<String> _incidentTypes = [
@@ -34,18 +37,16 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
   final List<XFile> _imageFiles = [];
   final ImagePicker _picker = ImagePicker();
   bool _isAnonymous = false;
-  bool _isUploading = false; // Loader state
+  bool _isUploading = false;
 
   // Map & Location State
   final MapController _mapController = MapController();
-  LatLng _currentPosition = const LatLng(0, 0); // Default placeholder
+  LatLng _currentPosition = const LatLng(0, 0);
   String _currentAddress = "Fetching location...";
   bool _isMapLoading = true;
 
   // Metadata
-  final String _timestamp = DateFormat(
-    'yyyy-MM-dd HH:mm',
-  ).format(DateTime.now());
+  final String _timestamp = DateFormat('yyyy-MM-dd HH:mm').format(DateTime.now());
 
   @override
   void initState() {
@@ -53,7 +54,6 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
     _determinePosition();
   }
 
-  /// Handles GPS permissions and initial fetch
   Future<void> _determinePosition() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
@@ -70,16 +70,10 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
       }
     }
 
-    if (permission == LocationPermission.deniedForever) {
-      setState(() => _currentAddress = "Location permissions are permanently denied.");
-      return;
-    }
-
     Position position = await Geolocator.getCurrentPosition();
     _updateLocation(LatLng(position.latitude, position.longitude));
   }
 
-  /// Updates marker, centers map, and fetches address
   Future<void> _updateLocation(LatLng position) async {
     setState(() {
       _currentPosition = position;
@@ -100,19 +94,14 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
       if (placemarks.isNotEmpty) {
         Placemark place = placemarks[0];
         setState(() {
-          _currentAddress =
-          "${place.street ?? ''}, ${place.locality ?? ''}, ${place.postalCode ?? ''}";
+          _currentAddress = "${place.street ?? ''}, ${place.locality ?? ''}, ${place.postalCode ?? ''}";
         });
       }
     } catch (e) {
-      setState(
-            () => _currentAddress =
-        "Location: ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}",
-      );
+      setState(() => _currentAddress = "Location: ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}");
     }
   }
 
-  /// Unified method to pick images from different sources
   Future<void> _pickImage(ImageSource source) async {
     if (_imageFiles.length >= 5) {
       _showErrorSnackBar("Maximum 5 photos allowed");
@@ -121,7 +110,6 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
 
     try {
       if (source == ImageSource.gallery) {
-        // Multi-image selection for gallery
         final List<XFile> selectedImages = await _picker.pickMultiImage();
         if (selectedImages.isNotEmpty) {
           setState(() {
@@ -132,68 +120,38 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
           });
         }
       } else {
-        // Single image capture for camera
-        final XFile? photo = await _picker.pickImage(
-          source: ImageSource.camera,
-          imageQuality: 85, // Moderate compression to save bandwidth
-        );
-        if (photo != null) {
-          setState(() {
-            _imageFiles.add(photo);
-          });
-        }
+        final XFile? photo = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+        if (photo != null) setState(() => _imageFiles.add(photo));
       }
     } catch (e) {
       _showErrorSnackBar("Error accessing source: $e");
     }
   }
 
-  /// Shows options to user to choose Gallery or Camera
   void _showImageSourcePicker() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      backgroundColor: _darkSurface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
         return SafeArea(
           child: Wrap(
             children: [
               Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  "Attach Photo",
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                padding: const EdgeInsets.all(20.0),
+                child: Text("Attach Photo", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: _textPrimary)),
               ),
               ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: Color(0xFFE3F2FD),
-                  child: Icon(Icons.photo_library, color: Colors.blueAccent),
-                ),
-                title: const Text("Choose from Gallery"),
-                subtitle: const Text("Select multiple existing photos"),
-                onTap: () {
-                  Navigator.pop(context);
-                  _pickImage(ImageSource.gallery);
-                },
+                leading: CircleAvatar(backgroundColor: Colors.blueAccent.withOpacity(0.1), child: const Icon(Icons.photo_library, color: Colors.blueAccent)),
+                title: Text("Choose from Gallery", style: TextStyle(color: _textPrimary)),
+                onTap: () { Navigator.pop(context); _pickImage(ImageSource.gallery); },
               ),
               ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: Color(0xFFF1F8E9),
-                  child: Icon(Icons.camera_alt, color: Colors.green),
-                ),
-                title: const Text("Take a Photo"),
-                subtitle: const Text("Use camera to capture incident"),
-                onTap: () {
-                  Navigator.pop(context);
-                  _pickImage(ImageSource.camera);
-                },
+                leading: CircleAvatar(backgroundColor: Colors.greenAccent.withOpacity(0.1), child: const Icon(Icons.camera_alt, color: Colors.greenAccent)),
+                title: Text("Take a Photo", style: TextStyle(color: _textPrimary)),
+                onTap: () { Navigator.pop(context); _pickImage(ImageSource.camera); },
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
             ],
           ),
         );
@@ -201,22 +159,9 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
     );
   }
 
-  /// Validation logic and Navigation to Progress Page
   Future<void> _validateAndSubmit() async {
-    if (_selectedIncidentType == null) {
-      _showErrorSnackBar("Please select an incident type.");
-      return;
-    }
-
-    if (_imageFiles.isEmpty) {
-      _showErrorSnackBar("Please upload at least one photo of the issue.");
-      return;
-    }
-
-    if (_currentPosition.latitude == 0 && _currentPosition.longitude == 0) {
-      _showErrorSnackBar("Location data is missing. Please wait for GPS.");
-      return;
-    }
+    if (_selectedIncidentType == null) { _showErrorSnackBar("Please select an incident type."); return; }
+    if (_imageFiles.isEmpty) { _showErrorSnackBar("Please upload at least one photo."); return; }
 
     final result = await Navigator.push(
       context,
@@ -230,38 +175,22 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
       ),
     );
 
-    if (result == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Complaint submitted successfully!"),
-          backgroundColor: Colors.green,
-        ),
-      );
-      Navigator.pop(context);
-    }
+    if (result == true && mounted) Navigator.pop(context);
   }
 
   void _showErrorSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.redAccent,
-      ),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.redAccent));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: _darkBg,
       appBar: AppBar(
-        title: const Text(
-          "New Complaint",
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.white,
+        title: Text("New Complaint", style: TextStyle(color: _textPrimary, fontWeight: FontWeight.bold)),
+        backgroundColor: _darkBg,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Stack(
         children: [
@@ -269,27 +198,22 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             child: Column(
               children: [
-                // Incident Type
                 _buildRow(
                   label: "Type",
                   child: DropdownButtonFormField<String>(
+                    dropdownColor: _darkSurface,
                     value: _selectedIncidentType,
+                    style: TextStyle(color: _textPrimary, fontSize: 14),
                     decoration: _fieldDecoration("Choose category"),
-                    items: _incidentTypes
-                        .map(
-                          (t) => DropdownMenuItem(
-                        value: t,
-                        child: Text(t, style: const TextStyle(fontSize: 14)),
-                      ),
-                    )
-                        .toList(),
-                    onChanged: _isUploading
-                        ? null
-                        : (val) => setState(() => _selectedIncidentType = val),
+                    // Added explicit hint property to ensure it uses high-contrast color
+                    hint: Text(
+                      "Choose category",
+                      style: TextStyle(color: _textPrimary, fontSize: 14),
+                    ),
+                    items: _incidentTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                    onChanged: _isUploading ? null : (val) => setState(() => _selectedIncidentType = val),
                   ),
                 ),
-
-                // Images
                 _buildRow(
                   label: "Photos",
                   child: Column(
@@ -300,26 +224,16 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
                           itemCount: _imageFiles.length + 1,
-                          itemBuilder: (context, index) {
-                            if (index == _imageFiles.length) {
-                              return _buildAddButton();
-                            }
-                            return _buildImagePreview(index);
-                          },
+                          itemBuilder: (context, index) => index == _imageFiles.length ? _buildAddButton() : _buildImagePreview(index),
                         ),
                       ),
-                      const Padding(
-                        padding: EdgeInsets.only(top: 8.0),
-                        child: Text(
-                          "Add up to 5 clear photos (Camera or Gallery)",
-                          style: TextStyle(fontSize: 11, color: Colors.grey),
-                        ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: Text("Add up to 5 clear photos", style: TextStyle(fontSize: 11, color: _textSecondary)),
                       ),
                     ],
                   ),
                 ),
-
-                // Location
                 _buildRow(
                   label: "Location",
                   child: Column(
@@ -327,10 +241,7 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
                       Container(
                         height: 220,
                         clipBehavior: Clip.antiAlias,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade200),
-                        ),
+                        decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.white10)),
                         child: _isMapLoading
                             ? const Center(child: CircularProgressIndicator())
                             : FlutterMap(
@@ -338,28 +249,16 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
                           options: MapOptions(
                             initialCenter: _currentPosition,
                             initialZoom: 15.0,
-                            onTap: _isUploading
-                                ? null
-                                : (tapPosition, point) => _updateLocation(point),
+                            onTap: _isUploading ? null : (tapPos, point) => _updateLocation(point),
                           ),
                           children: [
                             TileLayer(
-                              urlTemplate:
-                              'https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=gFtNu24T2QIe0IP18qvC',
-                              userAgentPackageName: 'com.example.gdg_hacksyn',
+                              urlTemplate: 'https://api.maptiler.com/maps/streets-v2/{z}/{x}/{y}.png?key=gFtNu24T2QIe0IP18qvC',
+                              userAgentPackageName: 'com.example.gdg_hacksync',
                             ),
                             MarkerLayer(
                               markers: [
-                                Marker(
-                                  point: _currentPosition,
-                                  width: 40,
-                                  height: 40,
-                                  child: const Icon(
-                                    Icons.location_on,
-                                    color: Colors.red,
-                                    size: 40,
-                                  ),
-                                ),
+                                Marker(point: _currentPosition, width: 40, height: 40, child: const Icon(Icons.location_on, color: Colors.redAccent, size: 40)),
                               ],
                             ),
                           ],
@@ -367,53 +266,31 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Text(
-                          _currentAddress,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.blueGrey,
-                          ),
-                        ),
+                        child: Text(_currentAddress, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blueAccent.shade100)),
                       ),
                     ],
                   ),
                 ),
-
-                // Date Time (Read Only)
                 _buildRow(
                   label: "Time",
                   child: TextFormField(
                     initialValue: _timestamp,
                     readOnly: true,
-                    decoration: _fieldDecoration(
-                      null,
-                    ).copyWith(fillColor: Colors.grey.shade50, filled: true),
-                    style: const TextStyle(color: Colors.black54, fontSize: 14),
+                    decoration: _fieldDecoration(null).copyWith(fillColor: Colors.white.withOpacity(0.05), filled: true),
+                    style: TextStyle(color: _textSecondary, fontSize: 14),
                   ),
                 ),
-
-                const Divider(height: 40),
-
-                // Anonymity
+                const Divider(height: 40, color: Colors.white10),
                 CheckboxListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text(
-                    "Submit as anonymous report",
-                    style: TextStyle(fontSize: 14),
-                  ),
+                  title: Text("Submit as anonymous report", style: TextStyle(fontSize: 14, color: _textPrimary)),
                   value: _isAnonymous,
-                  onChanged: _isUploading
-                      ? null
-                      : (val) => setState(() => _isAnonymous = val ?? false),
+                  onChanged: _isUploading ? null : (val) => setState(() => _isAnonymous = val ?? false),
                   activeColor: Colors.blueAccent,
+                  checkColor: Colors.white,
                   controlAffinity: ListTileControlAffinity.leading,
                 ),
-
                 const SizedBox(height: 20),
-
-                // Submit Button
                 SizedBox(
                   width: double.infinity,
                   height: 54,
@@ -422,25 +299,12 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blueAccent.shade700,
                       foregroundColor: Colors.white,
-                      disabledBackgroundColor: Colors.grey.shade400,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       elevation: 0,
                     ),
                     child: _isUploading
-                        ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                        : const Text(
-                      "Submit Report",
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
+                        ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Text("Submit Report", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(height: 40),
@@ -448,10 +312,7 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
             ),
           ),
           if (_isUploading)
-            Container(
-              color: Colors.black.withOpacity(0.1),
-              child: const Center(child: CircularProgressIndicator()),
-            ),
+            Container(color: Colors.black45, child: const Center(child: CircularProgressIndicator())),
         ],
       ),
     );
@@ -463,20 +324,7 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 70,
-            child: Padding(
-              padding: const EdgeInsets.only(top: 14),
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: Colors.grey,
-                ),
-              ),
-            ),
-          ),
+          SizedBox(width: 70, child: Padding(padding: const EdgeInsets.only(top: 14), child: Text(label, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: _textSecondary)))),
           const SizedBox(width: 12),
           Expanded(child: child),
         ],
@@ -490,24 +338,16 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
       margin: const EdgeInsets.only(right: 10),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
-        image: DecorationImage(
-          image: FileImage(File(_imageFiles[index].path)),
-          fit: BoxFit.cover,
-        ),
+        border: Border.all(color: Colors.white10),
+        image: DecorationImage(image: FileImage(File(_imageFiles[index].path)), fit: BoxFit.cover),
       ),
       child: Align(
         alignment: Alignment.topRight,
         child: GestureDetector(
-          onTap: _isUploading
-              ? null
-              : () => setState(() => _imageFiles.removeAt(index)),
+          onTap: _isUploading ? null : () => setState(() => _imageFiles.removeAt(index)),
           child: const Padding(
             padding: EdgeInsets.all(4.0),
-            child: CircleAvatar(
-              radius: 10,
-              backgroundColor: Colors.black54,
-              child: Icon(Icons.close, size: 12, color: Colors.white),
-            ),
+            child: CircleAvatar(radius: 10, backgroundColor: Colors.black54, child: Icon(Icons.close, size: 12, color: Colors.white)),
           ),
         ),
       ),
@@ -519,20 +359,13 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
       onTap: _isUploading ? null : _showImageSourcePicker,
       child: Container(
         width: 90,
-        decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade200, width: 2),
-        ),
-        child: const Column(
+        decoration: BoxDecoration(color: Colors.white.withOpacity(0.05), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white10, width: 2)),
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.add_a_photo_outlined, color: Colors.blueAccent),
-            SizedBox(height: 4),
-            Text(
-              "Add",
-              style: TextStyle(fontSize: 11, color: Colors.blueAccent, fontWeight: FontWeight.w600),
-            )
+            const Icon(Icons.add_a_photo_outlined, color: Colors.blueAccent),
+            const SizedBox(height: 4),
+            Text("Add", style: TextStyle(fontSize: 11, color: Colors.blueAccent.shade100, fontWeight: FontWeight.w600))
           ],
         ),
       ),
@@ -542,20 +375,11 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
   InputDecoration _fieldDecoration(String? hint) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: const TextStyle(fontSize: 14, color: Colors.grey),
+      // Updated hintStyle to ensure it is white and visible in dark mode
+      hintStyle: const TextStyle(fontSize: 14, color: Colors.white),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: Colors.grey.shade200),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: Colors.grey.shade200),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Colors.blueAccent, width: 1.5),
-      ),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.white10)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Colors.blueAccent, width: 1.5)),
     );
   }
 }

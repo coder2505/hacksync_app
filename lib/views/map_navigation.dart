@@ -16,6 +16,12 @@ class SimpleNavScreen extends StatefulWidget {
 class _SimpleNavScreenState extends State<SimpleNavScreen> {
   final MapController _mapController = MapController();
 
+  // Dark Mode Palette
+  final Color _darkBg = const Color(0xFF121212);
+  final Color _darkSurface = const Color(0xFF1E1E1E);
+  final Color _textPrimary = Colors.white.withOpacity(0.9);
+  final Color _textSecondary = Colors.white60;
+
   // -- STATE --
   LatLng? _currentLocation;
   LatLng? _destination;
@@ -122,7 +128,7 @@ class _SimpleNavScreenState extends State<SimpleNavScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("⚠️ Found ${detected.length} hazards! Check the list below."),
-          backgroundColor: Colors.red.shade800,
+          backgroundColor: Colors.redAccent.shade700,
         ),
       );
     }
@@ -131,7 +137,14 @@ class _SimpleNavScreenState extends State<SimpleNavScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Navigation")),
+      backgroundColor: _darkBg,
+      appBar: AppBar(
+        title: const Text("Plan your trip"),
+        backgroundColor: _darkSurface,
+        foregroundColor: _textPrimary,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
       body: Stack(
         children: [
           // --- 1. MAP LAYER ---
@@ -154,7 +167,7 @@ class _SimpleNavScreenState extends State<SimpleNavScreen> {
                     Polyline(
                       points: _routePoints,
                       strokeWidth: 5,
-                      color: Colors.blueAccent,
+                      color: Colors.blueAccent.shade200,
                     ),
                   ],
                 ),
@@ -183,13 +196,13 @@ class _SimpleNavScreenState extends State<SimpleNavScreen> {
                     Marker(
                       point: _currentLocation!,
                       width: 50, height: 50,
-                      child: const Icon(Icons.my_location, color: Colors.blue, size: 30),
+                      child: const Icon(Icons.my_location, color: Colors.blueAccent, size: 30),
                     ),
                   if (_destination != null)
                     Marker(
                       point: _destination!,
                       width: 50, height: 50,
-                      child: const Icon(Icons.location_on, color: Colors.green, size: 40),
+                      child: const Icon(Icons.location_on, color: Colors.greenAccent, size: 40),
                     ),
                 ],
               ),
@@ -198,11 +211,12 @@ class _SimpleNavScreenState extends State<SimpleNavScreen> {
 
           // --- 2. LOADING ---
           if (_isLoading)
-            const Center(
+            Center(
               child: Card(
-                child: Padding(
-                  padding: EdgeInsets.all(16.0),
-                  child: CircularProgressIndicator(),
+                color: _darkSurface,
+                child: const Padding(
+                  padding: EdgeInsets.all(24.0),
+                  child: CircularProgressIndicator(color: Colors.blueAccent),
                 ),
               ),
             ),
@@ -210,16 +224,16 @@ class _SimpleNavScreenState extends State<SimpleNavScreen> {
           // --- 3. BOTTOM SHEET (HAZARDS LIST) ---
           if (_hazardsOnRoute.isNotEmpty)
             DraggableScrollableSheet(
-              initialChildSize: 0.25, // Start showing just a bit
-              minChildSize: 0.15,     // Collapsed state
-              maxChildSize: 0.6,      // Expanded state
+              initialChildSize: 0.25,
+              minChildSize: 0.15,
+              maxChildSize: 0.6,
               builder: (context, scrollController) {
                 return Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: _darkSurface,
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, -2))
+                      BoxShadow(color: Colors.black54, blurRadius: 10, offset: const Offset(0, -2))
                     ],
                   ),
                   child: Column(
@@ -231,7 +245,7 @@ class _SimpleNavScreenState extends State<SimpleNavScreen> {
                           width: 40,
                           height: 5,
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade300,
+                            color: Colors.white12,
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),
@@ -242,11 +256,11 @@ class _SimpleNavScreenState extends State<SimpleNavScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                         child: Row(
                           children: [
-                            const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
+                            Icon(Icons.warning_amber_rounded, color: Colors.redAccent.shade100, size: 28),
                             const SizedBox(width: 10),
                             Text(
                               "${_hazardsOnRoute.length} Hazards on Route",
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _textPrimary),
                             ),
                           ],
                         ),
@@ -266,20 +280,18 @@ class _SimpleNavScreenState extends State<SimpleNavScreen> {
                                     ? Image.network(hazard['image'], width: 50, height: 50, fit: BoxFit.cover)
                                     : Container(
                                   width: 50, height: 50,
-                                  color: Colors.red.shade50,
-                                  child: const Icon(Icons.broken_image, color: Colors.red),
+                                  color: Colors.white10,
+                                  child: const Icon(Icons.broken_image, color: Colors.white24),
                                 ),
                               ),
                               title: Text(
                                 hazard['type'],
-                                style: const TextStyle(fontWeight: FontWeight.w600),
+                                style: TextStyle(fontWeight: FontWeight.w600, color: _textPrimary),
                               ),
-                              subtitle: const Text("Tap to view on map"),
-                              trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                              subtitle: Text("Tap to view on map", style: TextStyle(color: _textSecondary, fontSize: 12)),
+                              trailing: Icon(Icons.arrow_forward_ios, size: 14, color: _textSecondary),
                               onTap: () {
-                                // Move map to this hazard
                                 _mapController.move(hazard['location'], 17);
-                                // Optional: Close keyboard or perform other UI actions
                               },
                             );
                           },
@@ -294,17 +306,18 @@ class _SimpleNavScreenState extends State<SimpleNavScreen> {
           // --- 4. EMPTY STATE HINT ---
           if (_destination == null)
             Positioned(
-              top: 50,
+              top: 20,
               left: 20,
               right: 20,
               child: Card(
-                color: Colors.white.withOpacity(0.9),
-                child: const Padding(
-                  padding: EdgeInsets.all(12.0),
+                color: _darkSurface.withOpacity(0.95),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Colors.white10)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
                   child: Text(
                     "Tap anywhere on the map to start navigation.",
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.w600),
+                    style: TextStyle(fontWeight: FontWeight.w600, color: _textPrimary),
                   ),
                 ),
               ),
@@ -314,9 +327,11 @@ class _SimpleNavScreenState extends State<SimpleNavScreen> {
       floatingActionButton: _hazardsOnRoute.isEmpty
           ? FloatingActionButton(
         onPressed: _getCurrentLocation,
+        backgroundColor: _darkSurface,
+        foregroundColor: Colors.blueAccent,
         child: const Icon(Icons.gps_fixed),
       )
-          : null, // Hide FAB if bottom sheet is active to avoid overlap clutter
+          : null,
     );
   }
 }

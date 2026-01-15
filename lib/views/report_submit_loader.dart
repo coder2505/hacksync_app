@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:gdg_hacksync/utils/upload_user_complaint.dart'; // Ensure this path is correct
+import 'package:gdg_hacksync/utils/upload_user_complaint.dart';
 
 class SubmissionProgressPage extends StatefulWidget {
   final bool isAnonymous;
@@ -35,16 +35,20 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
   Map<String, dynamic>? _auditResult;
   String? _errorMessage;
 
+  // Dark Mode Palette
+  final Color _darkBg = const Color(0xFF121212);
+  final Color _darkSurface = const Color(0xFF1E1E1E);
+  final Color _textPrimary = Colors.white.withOpacity(0.9);
+  final Color _textSecondary = Colors.white60;
+
   @override
   void initState() {
     super.initState();
-    // Start the chain immediately when page loads
     _startSubmissionProcess();
   }
 
   Future<void> _startSubmissionProcess() async {
     try {
-      // --- STAGE 1: Uploading ---
       setState(() => _uploadStatus = 1);
 
       _recordId = await UploadUserComplaint.upload(
@@ -58,27 +62,24 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
 
       setState(() {
         _uploadStatus = 2;
-        _verificationStatus = 1; // Start next stage
+        _verificationStatus = 1;
       });
 
-      // --- STAGE 2: Verification Agent ---
       await _triggerUserAgentApi(_recordId!);
 
-      // --- STAGE 3: Audit Agent ---
       setState(() {
         _verificationStatus = 2;
-        _auditStatus = 1; // Start next stage
+        _auditStatus = 1;
       });
 
       await _triggerAuditAgentApi(_recordId!);
 
-      setState(() => _auditStatus = 2); // All Done
+      setState(() => _auditStatus = 2);
 
     } catch (e) {
       debugPrint("Process Failed: $e");
       setState(() {
         _errorMessage = e.toString();
-        // Mark current running stage as error
         if (_uploadStatus == 1) _uploadStatus = 3;
         else if (_verificationStatus == 1) _verificationStatus = 3;
         else if (_auditStatus == 1) _auditStatus = 3;
@@ -97,15 +98,11 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
-        setState(() {
-          _verificationResult = data;
-        });
+        setState(() => _verificationResult = data);
       } else {
         throw Exception("Verification Agent failed: ${response.statusCode}");
       }
-    } catch (e) {
-      rethrow;
-    }
+    } catch (e) { rethrow; }
   }
 
   Future<void> _triggerAuditAgentApi(String recordId) async {
@@ -119,29 +116,24 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
-        setState(() {
-          _auditResult = data;
-        });
+        setState(() => _auditResult = data);
       } else {
         throw Exception("Audit Agent failed: ${response.statusCode}");
       }
-    } catch (e) {
-      rethrow;
-    }
+    } catch (e) { rethrow; }
   }
 
   @override
   Widget build(BuildContext context) {
-    // If all stages are complete (success or error), allow going back
     bool isComplete = _auditStatus == 2 || _errorMessage != null;
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: _darkBg,
       appBar: AppBar(
-        title: const Text("Processing Report", style: TextStyle(color: Colors.black)),
-        backgroundColor: Colors.white,
+        title: Text("Processing Report", style: TextStyle(color: _textPrimary, fontWeight: FontWeight.bold)),
+        backgroundColor: _darkBg,
         elevation: 0,
-        automaticallyImplyLeading: false, // Prevent back button during process
+        automaticallyImplyLeading: false,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -176,9 +168,13 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
               Padding(
                 padding: const EdgeInsets.only(top: 20),
                 child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8)),
-                  child: Text("Error: $_errorMessage", style: TextStyle(color: Colors.red.shade800)),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+                  ),
+                  child: Text("Error: $_errorMessage", style: TextStyle(color: Colors.redAccent.shade100, fontSize: 13)),
                 ),
               ),
 
@@ -186,13 +182,15 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
 
             if (isComplete)
               ElevatedButton(
-                onPressed: () => Navigator.pop(context, true), // Return true to refresh prev screen
+                onPressed: () => Navigator.pop(context, true),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _errorMessage == null ? Colors.green : Colors.grey,
+                  backgroundColor: _errorMessage == null ? Colors.greenAccent.shade700 : Colors.white10,
+                  foregroundColor: _errorMessage == null ? Colors.black : Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
                 ),
-                child: Text(_errorMessage == null ? "Done" : "Close"),
+                child: Text(_errorMessage == null ? "Done" : "Close", style: const TextStyle(fontWeight: FontWeight.bold)),
               ),
           ],
         ),
@@ -202,7 +200,7 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
 
   Widget _buildStep({
     required String title,
-    required int status, // 0: Pending, 1: Loading, 2: Done, 3: Error
+    required int status,
     required IconData icon,
     Widget? child,
   }) {
@@ -211,19 +209,19 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
 
     switch (status) {
       case 1:
-        color = Colors.blue;
+        color = Colors.blueAccent;
         statusIcon = Icons.hourglass_top;
         break;
       case 2:
-        color = Colors.green;
+        color = Colors.greenAccent;
         statusIcon = Icons.check_circle;
         break;
       case 3:
-        color = Colors.red;
+        color = Colors.redAccent;
         statusIcon = Icons.error;
         break;
       default:
-        color = Colors.grey;
+        color = Colors.white24;
         statusIcon = Icons.circle_outlined;
     }
 
@@ -231,16 +229,12 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
       duration: const Duration(milliseconds: 300),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        color: _darkSurface,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: status == 1 ? Colors.blue.withOpacity(0.5) : Colors.grey.shade200,
+          color: status == 1 ? Colors.blueAccent.withOpacity(0.5) : Colors.white10,
           width: status == 1 ? 2 : 1,
         ),
-        boxShadow: [
-          if (status == 1)
-            BoxShadow(color: Colors.blue.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4))
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -250,28 +244,28 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
-                child: Icon(icon, color: color, size: 24),
+                child: Icon(icon, color: color, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
                   title,
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: FontWeight.bold,
-                    color: status == 0 ? Colors.grey : Colors.black87,
+                    color: status == 0 ? _textSecondary : _textPrimary,
                   ),
                 ),
               ),
               if (status == 1)
-                const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blueAccent))
               else
-                Icon(statusIcon, color: color),
+                Icon(statusIcon, color: color, size: 20),
             ],
           ),
           if (child != null) ...[
             const SizedBox(height: 12),
-            const Divider(),
+            const Divider(color: Colors.white10),
             const SizedBox(height: 8),
             child,
           ]
@@ -281,11 +275,8 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
   }
 
   Widget _buildVerificationResult(Map<String, dynamic>? data, bool isLoading) {
-    if (isLoading || data == null) {
-      return _buildShimmerLines();
-    }
+    if (isLoading || data == null) return const _ShimmerBlock();
 
-    // Parse the JSON structure from your example
     final aiResult = data['aiResult'];
     final userAgent = aiResult?['userAgent'] ?? {};
     final visual = userAgent['visualVerification'] ?? {};
@@ -297,19 +288,17 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
         _infoRow("Detected", (visual['detectedObjects'] as List?)?.join(", ") ?? 'None'),
         _infoRow("Severity", (userAgent['severity'] ?? 'Low').toString().toUpperCase()),
         _infoRow("Confidence", "${((userAgent['confidenceScore'] ?? 0) * 100).toStringAsFixed(0)}%"),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         Text(
           userAgent['summary'] ?? '',
-          style: const TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
+          style: TextStyle(fontSize: 12, color: _textSecondary, fontStyle: FontStyle.italic),
         ),
       ],
     );
   }
 
   Widget _buildAuditResult(Map<String, dynamic>? data, bool isLoading) {
-    if (isLoading || data == null) {
-      return _buildShimmerLines();
-    }
+    if (isLoading || data == null) return const _ShimmerBlock();
 
     final audit = data['audit'] ?? {};
     final agent = audit['auditAgent'] ?? {};
@@ -323,33 +312,28 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
 
         _infoRow("Corruption Score", "${agent['corruptionScore'] ?? 0}"),
         _infoRow("Status", (audit['auditStatus'] ?? '').toString().replaceAll('_', ' ').toUpperCase(),
-            color: (audit['auditStatus'] == 'flagged_for_action') ? Colors.red : Colors.black),
+            color: (audit['auditStatus'] == 'flagged_for_action') ? Colors.redAccent.shade100 : _textPrimary),
 
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         Text(
           agent['auditReasoning'] ?? '',
-          style: const TextStyle(fontSize: 12, color: Colors.grey),
+          style: TextStyle(fontSize: 12, color: _textSecondary),
         ),
       ],
     );
   }
 
-  Widget _infoRow(String label, String value, {Color color = Colors.black87}) {
+  Widget _infoRow(String label, String value, {Color? color}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 100, child: Text(label, style: const TextStyle(fontSize: 13, color: Colors.grey))),
-          Expanded(child: Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color))),
+          SizedBox(width: 110, child: Text(label, style: TextStyle(fontSize: 13, color: _textSecondary))),
+          Expanded(child: Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color ?? _textPrimary))),
         ],
       ),
     );
-  }
-
-  // Simple Shimmer Effect using opacity animation
-  Widget _buildShimmerLines() {
-    return const _ShimmerBlock();
   }
 }
 
@@ -378,15 +362,15 @@ class _ShimmerBlockState extends State<_ShimmerBlock> with SingleTickerProviderS
   @override
   Widget build(BuildContext context) {
     return FadeTransition(
-      opacity: Tween<double>(begin: 0.3, end: 1.0).animate(_controller),
+      opacity: Tween<double>(begin: 0.2, end: 0.6).animate(_controller),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(height: 12, width: 200, color: Colors.grey.shade300),
-          const SizedBox(height: 8),
-          Container(height: 12, width: 150, color: Colors.grey.shade300),
-          const SizedBox(height: 8),
-          Container(height: 12, width: 180, color: Colors.grey.shade300),
+          Container(height: 10, width: 200, decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(4))),
+          const SizedBox(height: 10),
+          Container(height: 10, width: 140, decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(4))),
+          const SizedBox(height: 10),
+          Container(height: 10, width: 170, decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(4))),
         ],
       ),
     );
