@@ -28,13 +28,15 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
   // Stages: 0 = Pending, 1 = In Progress, 2 = Completed, 3 = Error
   int _uploadStatus = 0;
   int _verificationStatus = 0;
-  int _duplicateStatus = 0; // NEW STAGE
+  int _duplicateStatus = 0;
   int _auditStatus = 0;
+  int _predictiveStatus = 0; // NEW STAGE
 
   String? _recordId;
   Map<String, dynamic>? _verificationResult;
-  Map<String, dynamic>? _duplicateResult; // NEW RESULT
+  Map<String, dynamic>? _duplicateResult;
   Map<String, dynamic>? _auditResult;
+  Map<String, dynamic>? _predictiveResult; // NEW RESULT
   String? _errorMessage;
 
   // Dark Mode Palette
@@ -73,21 +75,29 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
 
       setState(() {
         _verificationStatus = 2;
-        _duplicateStatus = 1; // Start Duplicate Stage
+        _duplicateStatus = 1;
       });
 
-      // --- STAGE 3: Duplicate Detection (NEW) ---
+      // --- STAGE 3: Duplicate Detection ---
       await _triggerDuplicateAgentApi(_recordId!);
 
       setState(() {
         _duplicateStatus = 2;
-        _auditStatus = 1; // Start Audit Stage
+        _auditStatus = 1;
       });
 
       // --- STAGE 4: Audit ---
       await _triggerAuditAgentApi(_recordId!);
 
-      setState(() => _auditStatus = 2);
+      setState(() {
+        _auditStatus = 2;
+        _predictiveStatus = 1; // Start Predictive Stage
+      });
+
+      // --- STAGE 5: Predictive Analysis (NEW) ---
+      await _triggerPredictiveAgentApi(_recordId!);
+
+      setState(() => _predictiveStatus = 2);
 
     } catch (e) {
       debugPrint("Process Failed: $e");
@@ -98,6 +108,7 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
         else if (_verificationStatus == 1) _verificationStatus = 3;
         else if (_duplicateStatus == 1) _duplicateStatus = 3;
         else if (_auditStatus == 1) _auditStatus = 3;
+        else if (_predictiveStatus == 1) _predictiveStatus = 3;
       });
     }
   }
@@ -115,7 +126,6 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
-        print('Verification Agent Response: $data');
         setState(() => _verificationResult = data);
       } else {
         throw Exception("Verification Agent failed: ${response.statusCode}");
@@ -134,7 +144,6 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
-        print('Duplicate Detection Agent Response: $data');
         setState(() => _duplicateResult = data);
       } else {
         throw Exception("Duplicate Detection Agent failed: ${response.statusCode}");
@@ -153,10 +162,27 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
-        print('Audit Agent Response: $data');
         setState(() => _auditResult = data);
       } else {
         throw Exception("Audit Agent failed: ${response.statusCode}");
+      }
+    } catch (e) { rethrow; }
+  }
+
+  Future<void> _triggerPredictiveAgentApi(String recordId) async {
+    final url = Uri.parse("https://impossibly-lenten-darryl.ngrok-free.dev/api/predictiveAgent");
+    try {
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"recordId": recordId}),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        setState(() => _predictiveResult = data);
+      } else {
+        throw Exception("Predictive Agent failed: ${response.statusCode}");
       }
     } catch (e) { rethrow; }
   }
@@ -165,7 +191,7 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
 
   @override
   Widget build(BuildContext context) {
-    bool isComplete = _auditStatus == 2 || _errorMessage != null;
+    bool isComplete = _predictiveStatus == 2 || _errorMessage != null;
 
     return Scaffold(
       backgroundColor: _darkBg,
@@ -195,7 +221,6 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
                   : null,
             ),
             const SizedBox(height: 16),
-            // NEW DUPLICATE STEP
             _buildStep(
               title: "Checking for Duplicates",
               status: _duplicateStatus,
@@ -211,6 +236,16 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
               icon: Icons.gavel_outlined,
               child: _auditStatus >= 1
                   ? _buildAuditResult(_auditResult, _auditStatus == 1)
+                  : null,
+            ),
+            const SizedBox(height: 16),
+            // NEW PREDICTIVE STEP
+            _buildStep(
+              title: "Future Risk & Cost Analysis",
+              status: _predictiveStatus,
+              icon: Icons.analytics_outlined,
+              child: _predictiveStatus >= 1
+                  ? _buildPredictiveResult(_predictiveResult, _predictiveStatus == 1)
                   : null,
             ),
 
@@ -352,8 +387,6 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
   Widget _buildDuplicateResult(Map<String, dynamic>? data, bool isLoading) {
     if (isLoading || data == null) return const _ShimmerBlock();
 
-    // Assuming a structure based on the agent name. Adjust keys if your API differs.
-    // Example expectation: { "duplicateDetection": { "isDuplicate": false, "message": "No duplicates found" } }
     final detection = data['duplicateDetection'] ?? {};
     final isDuplicate = detection['isDuplicate'] == true;
     final message = detection['reasoning'] ?? detection['message'] ?? 'Check completed';
@@ -404,14 +437,62 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
     );
   }
 
+  Widget _buildPredictiveResult(Map<String, dynamic>? data, bool isLoading) {
+    if (isLoading || data == null) return const _ShimmerBlock();
+
+    final prediction = data['prediction'] ?? {};
+    final agent = prediction['predictiveAgent'] ?? {};
+    final cost = agent['costAnalysis'] ?? {};
+
+    final savings = cost['savings'] ?? 0;
+    final condition = agent['currentCondition'] ?? 'Unknown';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(child: _infoRow("Condition", condition.toString().toUpperCase(), color: Colors.orangeAccent)),
+            Expanded(child: _infoRow("Timeline", agent['predictedFailureTimeline'] ?? 'N/A')),
+          ],
+        ),
+        const SizedBox(height: 12),
+        // Cost Savings Card
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.green.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.green.withOpacity(0.3)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text("Potential Savings:", style: TextStyle(color: Colors.white70, fontSize: 13)),
+              Text(
+                "₹${(savings / 1000000).toStringAsFixed(1)}M",
+                style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          agent['actionableInsight'] ?? '',
+          style: TextStyle(fontSize: 12, color: _textSecondary, fontStyle: FontStyle.italic),
+        ),
+      ],
+    );
+  }
+
   Widget _infoRow(String label, String value, {Color? color}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(width: 110, child: Text(label, style: TextStyle(fontSize: 13, color: _textSecondary))),
-          Expanded(child: Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color ?? _textPrimary))),
+          Text(label, style: TextStyle(fontSize: 11, color: _textSecondary)),
+          Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color ?? _textPrimary)),
         ],
       ),
     );
