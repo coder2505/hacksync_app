@@ -94,7 +94,7 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
         _predictiveStatus = 1; // Start Predictive Stage
       });
 
-      // --- STAGE 5: Predictive Analysis (NEW) ---
+      // --- STAGE 5: Predictive Analysis ---
       await _triggerPredictiveAgentApi(_recordId!);
 
       setState(() => _predictiveStatus = 2);
@@ -239,7 +239,7 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
                   : null,
             ),
             const SizedBox(height: 16),
-            // NEW PREDICTIVE STEP
+            // PREDICTIVE STEP
             _buildStep(
               title: "Future Risk & Cost Analysis",
               status: _predictiveStatus,
@@ -442,46 +442,102 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
 
     final prediction = data['prediction'] ?? {};
     final agent = prediction['predictiveAgent'] ?? {};
-    final cost = agent['costAnalysis'] ?? {};
 
-    final savings = cost['savings'] ?? 0;
-    final condition = agent['currentCondition'] ?? 'Unknown';
+    // --- Parse New Schema Fields ---
+    final physics = agent['degradationPhysics'] ?? 'N/A';
+
+    final timeline = agent['failureTimeline'] ?? {};
+    final timeToFailure = timeline['timeToCriticalFailure'] ?? 'Unknown';
+
+    final finance = agent['financialImpact'] ?? {};
+    final fixNow = finance['fixCostNow'] ?? 0;
+    final fixFuture = finance['fixCostFuture'] ?? 0;
+
+    final dataSources = agent['dataSources'] ?? {};
+    final weather = dataSources['weather'] ?? {};
+    final traffic = dataSources['traffic'] ?? {};
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Physics & Timeline Row
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: _infoRow("Condition", condition.toString().toUpperCase(), color: Colors.orangeAccent)),
-            Expanded(child: _infoRow("Timeline", agent['predictedFailureTimeline'] ?? 'N/A')),
+            Expanded(child: _infoRow("Timeline", timeToFailure.toString(), color: Colors.orangeAccent)),
+            Expanded(child: _infoRow("Risk Level", (timeline['confidence'] ?? 0).toString())),
           ],
         ),
+        const SizedBox(height: 8),
+        _infoRow("Physics", physics),
+
         const SizedBox(height: 12),
-        // Cost Savings Card
+
+        // Context Chips (Weather / Traffic)
+        Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            if (weather['summary'] != null)
+              _buildContextChip(Icons.cloud_outlined, weather['summary'].toString().split(',')[0]),
+            if (traffic['level'] != null)
+              _buildContextChip(Icons.traffic_outlined, "Traffic: ${traffic['level']}"),
+          ],
+        ),
+
+        const SizedBox(height: 12),
+
+        // Financial Impact Card
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.green.withOpacity(0.1),
+            color: Colors.blueAccent.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.green.withOpacity(0.3)),
+            border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: Column(
             children: [
-              const Text("Potential Savings:", style: TextStyle(color: Colors.white70, fontSize: 13)),
-              Text(
-                "₹${(savings / 1000000).toStringAsFixed(1)}M",
-                style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 16),
-              ),
+              _buildFinanceRow("Fix Now", "₹$fixNow", Colors.greenAccent),
+              const SizedBox(height: 4),
+              _buildFinanceRow("Fix Future", "₹$fixFuture", Colors.redAccent.shade100),
             ],
           ),
         ),
+
         const SizedBox(height: 12),
         Text(
           agent['actionableInsight'] ?? '',
           style: TextStyle(fontSize: 12, color: _textSecondary, fontStyle: FontStyle.italic),
         ),
       ],
+    );
+  }
+
+  Widget _buildFinanceRow(String label, String value, Color color) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(color: _textSecondary, fontSize: 13)),
+        Text(value, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
+      ],
+    );
+  }
+
+  Widget _buildContextChip(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white10,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: _textSecondary),
+          const SizedBox(width: 4),
+          Text(label, style: TextStyle(fontSize: 11, color: _textSecondary)),
+        ],
+      ),
     );
   }
 
