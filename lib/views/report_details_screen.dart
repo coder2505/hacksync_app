@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:gdg_hacksync/views/rti_draft_screen.dart';
 import '../models/fetchIncident.dart';
 
 class ReportDetailsScreen extends StatelessWidget {
@@ -16,6 +17,44 @@ class ReportDetailsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _darkBg,
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: _darkBg,
+          border: Border(top: BorderSide(color: Colors.white10)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "Unsatisfied with the resolution?",
+              style: TextStyle(color: _textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => RTIDraftScreen(report: report),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.description_outlined, color: Colors.black),
+                label: const Text("Draft RTI Application"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
       appBar: AppBar(
         title: Text("Incident Timeline", style: TextStyle(color: _textPrimary)),
         elevation: 0,
