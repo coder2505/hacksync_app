@@ -14,10 +14,16 @@ class UserHomescreen extends StatefulWidget {
 }
 
 class _UserHomescreenState extends State<UserHomescreen> {
+  // Dark Mode Palette
+  final Color _darkBg = const Color(0xFF121212);
+  final Color _darkSurface = const Color(0xFF1E1E1E);
+  final Color _textPrimary = Colors.white.withOpacity(0.9);
+  final Color _textSecondary = Colors.white60;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: _darkBg,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 30.0),
@@ -25,19 +31,19 @@ class _UserHomescreenState extends State<UserHomescreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header Section
-              const Text(
+              Text(
                 "Welcome back,",
                 style: TextStyle(
                   fontSize: 18,
-                  color: Colors.black54,
+                  color: _textSecondary,
                   fontWeight: FontWeight.w400,
                 ),
               ),
-              const Text(
+              Text(
                 "Manish",
                 style: TextStyle(
                   fontSize: 36,
-                  color: Colors.black,
+                  color: _textPrimary,
                   fontWeight: FontWeight.bold,
                   letterSpacing: -0.5,
                 ),
@@ -56,8 +62,8 @@ class _UserHomescreenState extends State<UserHomescreen> {
                   _buildActionCard(
                     title: "Profile",
                     icon: Icons.person,
-                    color: Colors.green.shade50,
-                    iconColor: Colors.green.shade700,
+                    color: Colors.greenAccent.withOpacity(0.1),
+                    iconColor: Colors.greenAccent.shade100,
                     onTap: () {
                       Navigator.push(
                         context,
@@ -70,8 +76,8 @@ class _UserHomescreenState extends State<UserHomescreen> {
                   _buildActionCard(
                     title: "Report History",
                     icon: Icons.history,
-                    color: Colors.blue.shade50,
-                    iconColor: Colors.blue.shade700,
+                    color: Colors.blueAccent.withOpacity(0.1),
+                    iconColor: Colors.blueAccent.shade100,
                     onTap: () {
                       Navigator.push(
                         context,
@@ -84,8 +90,8 @@ class _UserHomescreenState extends State<UserHomescreen> {
                   _buildActionCard(
                     title: "Heat Map",
                     icon: Icons.map_outlined,
-                    color: Colors.orange.shade50,
-                    iconColor: Colors.orange.shade700,
+                    color: Colors.orangeAccent.withOpacity(0.1),
+                    iconColor: Colors.orangeAccent.shade100,
                     onTap: () {
                       Navigator.push(
                         context,
@@ -98,8 +104,8 @@ class _UserHomescreenState extends State<UserHomescreen> {
                   _buildActionCard(
                     title: "Issues Around You",
                     icon: Icons.warning_amber_rounded,
-                    color: Colors.red.shade50,
-                    iconColor: Colors.red.shade900,
+                    color: Colors.redAccent.withOpacity(0.1),
+                    iconColor: Colors.redAccent.shade100,
                     onTap: () {
                       Navigator.push(
                         context,
@@ -109,14 +115,20 @@ class _UserHomescreenState extends State<UserHomescreen> {
                       );
                     },
                   ),
-                  _buildActionCard(title: "Plan your trip", icon: Icons.map, color: Colors.blue.shade50, iconColor: Colors.blue, onTap: (){
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (context) => SimpleNavScreen(),
-                      ),
-                    );
-                  })
+                  _buildActionCard(
+                      title: "Plan your trip",
+                      icon: Icons.map,
+                      color: Colors.cyanAccent.withOpacity(0.1),
+                      iconColor: Colors.cyanAccent.shade100,
+                      onTap: (){
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute<void>(
+                            builder: (context) => SimpleNavScreen(),
+                          ),
+                        );
+                      }
+                  )
                 ],
               ),
 
@@ -127,21 +139,23 @@ class _UserHomescreenState extends State<UserHomescreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
+                  color: _darkSurface,
                   borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white10),
                 ),
                 child: Row(
                   children: [
                     Icon(
                       Icons.tips_and_updates_outlined,
-                      color: Colors.amber.shade800,
+                      color: Colors.amberAccent.shade100,
                     ),
                     const SizedBox(width: 15),
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         "Your recent report on 'Water Leakage' is being reviewed.",
                         style: TextStyle(
                           fontSize: 14,
+                          color: _textPrimary,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -149,6 +163,7 @@ class _UserHomescreenState extends State<UserHomescreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 80), // Space for FAB
             ],
           ),
         ),
@@ -163,12 +178,12 @@ class _UserHomescreenState extends State<UserHomescreen> {
             ),
           );
         },
-        backgroundColor: Colors.red.shade700,
-        elevation: 4,
-        icon: const Icon(Icons.add_circle_outline, color: Colors.white),
+        backgroundColor: Colors.redAccent.shade200,
+        elevation: 8,
+        icon: const Icon(Icons.add_circle_outline, color: Colors.black87),
         label: const Text(
           "Report a new issue",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
         ),
       ),
     );
@@ -196,7 +211,7 @@ class _UserHomescreenState extends State<UserHomescreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.7),
+                  color: Colors.white.withOpacity(0.05),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon, color: iconColor, size: 28),
@@ -206,7 +221,7 @@ class _UserHomescreenState extends State<UserHomescreen> {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
-                  color: iconColor.withOpacity(0.9),
+                  color: iconColor,
                   height: 1.2,
                 ),
               ),
