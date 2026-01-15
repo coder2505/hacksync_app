@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:gdg_hacksync/views/report_details_screen.dart';
 import 'package:geocoding/geocoding.dart';
 import '../models/fetchIncident.dart';
-import '../utils/retrieve_user_complaints.dart';
+import '../utils/retrieve_user_complaints.dart'; // This contains the model and fetcher
 
 class ReportHistoryScreen extends StatefulWidget {
   const ReportHistoryScreen({super.key});
@@ -13,76 +13,46 @@ class ReportHistoryScreen extends StatefulWidget {
 }
 
 class _ReportHistoryScreenState extends State<ReportHistoryScreen> {
-  // Dummy User ID
   final String dummyUserId = dotenv.env["USERID"] ?? "manishbaby123";
-
-  // Future variable to hold the report data
   late Future<List<ReportModel>> _reportsFuture;
 
   @override
   void initState() {
     super.initState();
-    // Initialize the future once here
     _reportsFuture = RetrieveUserComplaints.fetch(dummyUserId);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text(
-          'Report History',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: const Text('My Reports', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
       ),
       body: FutureBuilder<List<ReportModel>>(
-        future: _reportsFuture, // Use the initialized future
+        future: _reportsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-
           if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Text(
-                  "An error occurred: ${snapshot.error}",
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            );
+            return Center(child: Text("Error: ${snapshot.error}"));
           }
 
           final reports = snapshot.data ?? [];
-
           if (reports.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.history_outlined, size: 80, color: Colors.grey[400]),
-                  const SizedBox(height: 16),
-                  Text(
-                    "No reports found",
-                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-            );
+            return const Center(child: Text("No reports found"));
           }
 
           return ListView.builder(
             padding: const EdgeInsets.all(16),
             itemCount: reports.length,
             itemBuilder: (context, index) {
-              final report = reports[index];
-              return _ReportCard(report: report);
+              return _ReportCard(report: reports[index]);
             },
           );
         },
@@ -93,140 +63,119 @@ class _ReportHistoryScreenState extends State<ReportHistoryScreen> {
 
 class _ReportCard extends StatelessWidget {
   final ReportModel report;
-
   const _ReportCard({required this.report});
 
-  // Helper function to convert LatLng to a readable address
   Future<String> _getAddress(double lat, double lng) async {
     try {
       List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
       if (placemarks.isNotEmpty) {
-        Placemark place = placemarks[0];
-        return "${place.street}, ${place.locality}, ${place.country}";
+        Placemark p = placemarks[0];
+        return "${p.street}, ${p.locality}";
       }
-      return "Unknown Location";
+      return "Location Found";
     } catch (e) {
-      // Fallback to coordinates if geocoding fails
-      return "Lat: ${lat.toStringAsFixed(4)}, Long: ${lng.toStringAsFixed(4)}";
+      return "Lat: ${lat.toStringAsFixed(2)}, Lng: ${lng.toStringAsFixed(2)}";
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
+    // Logic for Stepper Status
+    int currentStep = 0; // Submitted
+    if (report.userAgent != null) currentStep = 1; // Processed
+    if (report.evidenceAgent?.isResolved ?? false) currentStep = 2; // Resolved
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => ReportDetailsScreen(report: report)),
+      ),
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        clipBehavior: Clip.antiAlias,
+        elevation: 2,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        report.type.toUpperCase(),
+                        style: TextStyle(color: Colors.blue[800], fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                      Text(
+                        "${report.timestamp.day}/${report.timestamp.month}/${report.timestamp.year}",
+                        style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                      ),
+                    ],
                   ),
-                  child: Text(
-                    report.type.toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.blue,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-                Text(
-                  "${report.timestamp.day}/${report.timestamp.month}/${report.timestamp.year}",
-                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (report.photoUrls.isNotEmpty)
-              SizedBox(
-                height: 100,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: report.photoUrls.length,
-                  itemBuilder: (context, index) {
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          report.photoUrls[index],
-                          width: 100,
-                          height: 100,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Container(
-                            width: 100,
-                            color: Colors.grey[200],
-                            child: const Icon(Icons.broken_image),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on, size: 14, color: Colors.red),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: FutureBuilder<String>(
+                          future: _getAddress(report.location.latitude, report.location.longitude),
+                          builder: (context, snap) => Text(
+                            snap.data ?? "Fetching...",
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          loadingBuilder: (context, child, progress) {
-                            if (progress == null) return child;
-                            return Container(
-                              width: 100,
-                              color: Colors.grey[100],
-                              child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                            );
-                          },
                         ),
                       ),
-                    );
-                  },
-                ),
-              ),
-            const SizedBox(height: 12),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Padding(
-                  padding: EdgeInsets.only(top: 2.0),
-                  child: Icon(Icons.location_on, size: 16, color: Colors.redAccent),
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: FutureBuilder<String>(
-                    future: _getAddress(report.location.latitude, report.location.longitude),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return Text(
-                          "Loading address...",
-                          style: TextStyle(fontSize: 14, color: Colors.grey[500], fontStyle: FontStyle.italic),
-                        );
-                      }
-                      return Text(
-                        snapshot.data ?? "Location unavailable",
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                      );
-                    },
+                    ],
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(
-                  report.isAnonymous ? Icons.visibility_off : Icons.visibility,
-                  size: 16,
-                  color: Colors.grey[600],
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  report.isAnonymous ? "Anonymous Report" : "Public Report",
-                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                ),
-              ],
+                  const SizedBox(height: 20),
+
+                  // Simple Visual Stepper
+                  Row(
+                    children: [
+                      _buildStep("Submitted", true, true),
+                      _buildLine(currentStep >= 1),
+                      _buildStep("Processed", currentStep >= 1, currentStep >= 1),
+                      _buildLine(currentStep >= 2),
+                      _buildStep("Resolved", currentStep >= 2, currentStep >= 2),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildStep(String title, bool isActive, bool isCompleted) {
+    return Column(
+      children: [
+        CircleAvatar(
+          radius: 10,
+          backgroundColor: isCompleted ? Colors.green : (isActive ? Colors.blue : Colors.grey[300]),
+          child: isCompleted
+              ? const Icon(Icons.check, size: 12, color: Colors.white)
+              : Container(width: 6, height: 6, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
+        ),
+        const SizedBox(height: 4),
+        Text(title, style: TextStyle(fontSize: 10, color: isActive ? Colors.black87 : Colors.grey)),
+      ],
+    );
+  }
+
+  Widget _buildLine(bool isPassed) {
+    return Expanded(
+      child: Container(
+        height: 2,
+        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 15),
+        color: isPassed ? Colors.green : Colors.grey[300],
       ),
     );
   }
