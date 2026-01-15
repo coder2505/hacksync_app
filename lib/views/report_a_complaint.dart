@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert'; // Added for JSON encoding
+import 'package:gdg_hacksync/views/report_submit_loader.dart';
 import 'package:http/http.dart' as http; // Added for API requests
 
 import 'package:flutter/material.dart';
@@ -133,6 +134,7 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
   }
 
   /// Validation logic and Submission handling
+  /// Validation logic and Navigation to Progress Page
   Future<void> _validateAndSubmit() async {
     // 1. Check Incident Type
     if (_selectedIncidentType == null) {
@@ -146,69 +148,35 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
       return;
     }
 
-    // 3. Check Location (ensure it's not the default 0,0)
+    // 3. Check Location
     if (_currentPosition.latitude == 0 && _currentPosition.longitude == 0) {
       _showErrorSnackBar("Location data is missing. Please wait for GPS.");
       return;
     }
 
-    setState(() => _isUploading = true);
+    // Navigate to the Submission Progress Page
+    // We await the result to see if we should close this screen too (e.g. on success)
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SubmissionProgressPage(
+          isAnonymous: _isAnonymous,
+          currentPosition: _currentPosition,
+          imageFiles: _imageFiles,
+          incidentType: _selectedIncidentType!,
+        ),
+      ),
+    );
 
-    try {
-      String recordId = await UploadUserComplaint.upload(
-        _isAnonymous,
-        _currentPosition,
-        _imageFiles,
-        DateTime.now(),
-        _selectedIncidentType!,
-        dotenv.env['USERID'] ?? "manishbaby123",
+    // If result is true, it means submission was successful
+    if (result == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Complaint submitted successfully!"),
+          backgroundColor: Colors.green,
+        ),
       );
-
-      // Step 2: Trigger the External API
-      debugPrint("Firestore Record Created: $recordId. Triggering Agent...");
-      await _triggerUserAgentApi(recordId);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Complaint submitted successfully!"),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.pop(context); // Go back after success
-      }
-    } catch (e) {
-      debugPrint("Submission Error: $e");
-      _showErrorSnackBar("Failed to submit report. Please try again.");
-    } finally {
-      if (mounted) setState(() => _isUploading = false);
-    }
-  }
-
-  /// Sends the POST request to the API
-  Future<void> _triggerUserAgentApi(String recordId) async {
-    try {
-      final url = Uri.parse("https://impossibly-lenten-darryl.ngrok-free.dev/api/userAgent");
-
-      final response = await http.post(
-        url,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: jsonEncode({
-          "recordId": recordId,
-        }),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        debugPrint("Agent API Triggered Successfully: ${response.body}");
-      } else {
-        debugPrint("Agent API Failed: ${response.statusCode} - ${response.body}");
-        // Optional: Decide if you want to block the UI success if this fails
-        // Currently, we just log it so the user still sees "Success" for the upload
-      }
-    } catch (e) {
-      debugPrint("Agent API Connection Error: $e");
+      Navigator.pop(context); // Close the Report Form
     }
   }
 
