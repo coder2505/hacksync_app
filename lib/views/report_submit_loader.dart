@@ -28,10 +28,12 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
   // Stages: 0 = Pending, 1 = In Progress, 2 = Completed, 3 = Error
   int _uploadStatus = 0;
   int _verificationStatus = 0;
+  int _duplicateStatus = 0; // NEW STAGE
   int _auditStatus = 0;
 
   String? _recordId;
   Map<String, dynamic>? _verificationResult;
+  Map<String, dynamic>? _duplicateResult; // NEW RESULT
   Map<String, dynamic>? _auditResult;
   String? _errorMessage;
 
@@ -49,6 +51,7 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
 
   Future<void> _startSubmissionProcess() async {
     try {
+      // --- STAGE 1: Upload ---
       setState(() => _uploadStatus = 1);
 
       _recordId = await UploadUserComplaint.upload(
@@ -65,13 +68,23 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
         _verificationStatus = 1;
       });
 
+      // --- STAGE 2: Verification ---
       await _triggerUserAgentApi(_recordId!);
 
       setState(() {
         _verificationStatus = 2;
-        _auditStatus = 1;
+        _duplicateStatus = 1; // Start Duplicate Stage
       });
 
+      // --- STAGE 3: Duplicate Detection (NEW) ---
+      await _triggerDuplicateAgentApi(_recordId!);
+
+      setState(() {
+        _duplicateStatus = 2;
+        _auditStatus = 1; // Start Audit Stage
+      });
+
+      // --- STAGE 4: Audit ---
       await _triggerAuditAgentApi(_recordId!);
 
       setState(() => _auditStatus = 2);
@@ -80,12 +93,16 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
       debugPrint("Process Failed: $e");
       setState(() {
         _errorMessage = e.toString();
+        // Mark the active stage as error
         if (_uploadStatus == 1) _uploadStatus = 3;
         else if (_verificationStatus == 1) _verificationStatus = 3;
+        else if (_duplicateStatus == 1) _duplicateStatus = 3;
         else if (_auditStatus == 1) _auditStatus = 3;
       });
     }
   }
+
+  // --- API CALLS ---
 
   Future<void> _triggerUserAgentApi(String recordId) async {
     final url = Uri.parse("https://impossibly-lenten-darryl.ngrok-free.dev/api/userAgent");
@@ -98,9 +115,29 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
+        print('Verification Agent Response: $data');
         setState(() => _verificationResult = data);
       } else {
         throw Exception("Verification Agent failed: ${response.statusCode}");
+      }
+    } catch (e) { rethrow; }
+  }
+
+  Future<void> _triggerDuplicateAgentApi(String recordId) async {
+    final url = Uri.parse("https://impossibly-lenten-darryl.ngrok-free.dev/api/duplicateDetectionAgent");
+    try {
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"recordId": recordId}),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        print('Duplicate Detection Agent Response: $data');
+        setState(() => _duplicateResult = data);
+      } else {
+        throw Exception("Duplicate Detection Agent failed: ${response.statusCode}");
       }
     } catch (e) { rethrow; }
   }
@@ -116,12 +153,15 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
+        print('Audit Agent Response: $data');
         setState(() => _auditResult = data);
       } else {
         throw Exception("Audit Agent failed: ${response.statusCode}");
       }
     } catch (e) { rethrow; }
   }
+
+  // --- UI BUILDING ---
 
   @override
   Widget build(BuildContext context) {
@@ -152,6 +192,16 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
               icon: Icons.verified_user_outlined,
               child: _verificationStatus >= 1
                   ? _buildVerificationResult(_verificationResult, _verificationStatus == 1)
+                  : null,
+            ),
+            const SizedBox(height: 16),
+            // NEW DUPLICATE STEP
+            _buildStep(
+              title: "Checking for Duplicates",
+              status: _duplicateStatus,
+              icon: Icons.copy_all_outlined,
+              child: _duplicateStatus >= 1
+                  ? _buildDuplicateResult(_duplicateResult, _duplicateStatus == 1)
                   : null,
             ),
             const SizedBox(height: 16),
@@ -274,6 +324,8 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
     );
   }
 
+  // --- RESULT WIDGETS ---
+
   Widget _buildVerificationResult(Map<String, dynamic>? data, bool isLoading) {
     if (isLoading || data == null) return const _ShimmerBlock();
 
@@ -292,6 +344,35 @@ class _SubmissionProgressPageState extends State<SubmissionProgressPage> {
         Text(
           userAgent['summary'] ?? '',
           style: TextStyle(fontSize: 12, color: _textSecondary, fontStyle: FontStyle.italic),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDuplicateResult(Map<String, dynamic>? data, bool isLoading) {
+    if (isLoading || data == null) return const _ShimmerBlock();
+
+    // Assuming a structure based on the agent name. Adjust keys if your API differs.
+    // Example expectation: { "duplicateDetection": { "isDuplicate": false, "message": "No duplicates found" } }
+    final detection = data['duplicateDetection'] ?? {};
+    final isDuplicate = detection['isDuplicate'] == true;
+    final message = detection['reasoning'] ?? detection['message'] ?? 'Check completed';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _infoRow(
+            "Duplicate Found",
+            isDuplicate ? "YES" : "NO",
+            color: isDuplicate ? Colors.redAccent : Colors.greenAccent
+        ),
+        if (isDuplicate)
+          _infoRow("Original Report", detection['originalReportId'] ?? 'Unknown'),
+
+        const SizedBox(height: 10),
+        Text(
+          message,
+          style: TextStyle(fontSize: 12, color: _textSecondary),
         ),
       ],
     );
