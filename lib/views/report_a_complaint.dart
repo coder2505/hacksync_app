@@ -1,17 +1,15 @@
 import 'dart:io';
-import 'dart:convert'; // Added for JSON encoding
+import 'dart:convert';
 import 'package:gdg_hacksync/views/report_submit_loader.dart';
-import 'package:http/http.dart' as http; // Added for API requests
+import 'package:http/http.dart' as http;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:gdg_hacksync/utils/upload_user_complaint.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ReportAComplaint extends StatefulWidget {
   const ReportAComplaint({super.key});
@@ -114,48 +112,112 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
     }
   }
 
-  Future<void> _pickImages() async {
+  /// Unified method to pick images from different sources
+  Future<void> _pickImage(ImageSource source) async {
     if (_imageFiles.length >= 5) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Maximum 5 photos allowed")),
-      );
+      _showErrorSnackBar("Maximum 5 photos allowed");
       return;
     }
-    final List<XFile> selectedImages = await _picker.pickMultiImage();
-    if (selectedImages.isNotEmpty) {
-      setState(() {
-        // Add only up to 5 images total
-        _imageFiles.addAll(selectedImages);
-        if (_imageFiles.length > 5) {
-          _imageFiles.removeRange(5, _imageFiles.length);
+
+    try {
+      if (source == ImageSource.gallery) {
+        // Multi-image selection for gallery
+        final List<XFile> selectedImages = await _picker.pickMultiImage();
+        if (selectedImages.isNotEmpty) {
+          setState(() {
+            _imageFiles.addAll(selectedImages);
+            if (_imageFiles.length > 5) {
+              _imageFiles.removeRange(5, _imageFiles.length);
+            }
+          });
         }
-      });
+      } else {
+        // Single image capture for camera
+        final XFile? photo = await _picker.pickImage(
+          source: ImageSource.camera,
+          imageQuality: 85, // Moderate compression to save bandwidth
+        );
+        if (photo != null) {
+          setState(() {
+            _imageFiles.add(photo);
+          });
+        }
+      }
+    } catch (e) {
+      _showErrorSnackBar("Error accessing source: $e");
     }
   }
 
-  /// Validation logic and Submission handling
+  /// Shows options to user to choose Gallery or Camera
+  void _showImageSourcePicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text(
+                  "Attach Photo",
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFE3F2FD),
+                  child: Icon(Icons.photo_library, color: Colors.blueAccent),
+                ),
+                title: const Text("Choose from Gallery"),
+                subtitle: const Text("Select multiple existing photos"),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: const CircleAvatar(
+                  backgroundColor: Color(0xFFF1F8E9),
+                  child: Icon(Icons.camera_alt, color: Colors.green),
+                ),
+                title: const Text("Take a Photo"),
+                subtitle: const Text("Use camera to capture incident"),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.camera);
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   /// Validation logic and Navigation to Progress Page
   Future<void> _validateAndSubmit() async {
-    // 1. Check Incident Type
     if (_selectedIncidentType == null) {
       _showErrorSnackBar("Please select an incident type.");
       return;
     }
 
-    // 2. Check Photos
     if (_imageFiles.isEmpty) {
       _showErrorSnackBar("Please upload at least one photo of the issue.");
       return;
     }
 
-    // 3. Check Location
     if (_currentPosition.latitude == 0 && _currentPosition.longitude == 0) {
       _showErrorSnackBar("Location data is missing. Please wait for GPS.");
       return;
     }
 
-    // Navigate to the Submission Progress Page
-    // We await the result to see if we should close this screen too (e.g. on success)
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -168,7 +230,6 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
       ),
     );
 
-    // If result is true, it means submission was successful
     if (result == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -176,7 +237,7 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
           backgroundColor: Colors.green,
         ),
       );
-      Navigator.pop(context); // Close the Report Form
+      Navigator.pop(context);
     }
   }
 
@@ -250,7 +311,7 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
                       const Padding(
                         padding: EdgeInsets.only(top: 8.0),
                         child: Text(
-                          "Upload up to 5 clear photos",
+                          "Add up to 5 clear photos (Camera or Gallery)",
                           style: TextStyle(fontSize: 11, color: Colors.grey),
                         ),
                       ),
@@ -386,7 +447,6 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
               ],
             ),
           ),
-          // Full screen loader overlay (Optional: can use the button loader instead)
           if (_isUploading)
             Container(
               color: Colors.black.withOpacity(0.1),
@@ -456,7 +516,7 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
 
   Widget _buildAddButton() {
     return GestureDetector(
-      onTap: _isUploading ? null : _pickImages,
+      onTap: _isUploading ? null : _showImageSourcePicker,
       child: Container(
         width: 90,
         decoration: BoxDecoration(
@@ -464,7 +524,17 @@ class _ReportAComplaintState extends State<ReportAComplaint> {
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: Colors.grey.shade200, width: 2),
         ),
-        child: const Icon(Icons.add_a_photo_outlined, color: Colors.blueAccent),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add_a_photo_outlined, color: Colors.blueAccent),
+            SizedBox(height: 4),
+            Text(
+              "Add",
+              style: TextStyle(fontSize: 11, color: Colors.blueAccent, fontWeight: FontWeight.w600),
+            )
+          ],
+        ),
       ),
     );
   }
